@@ -99,6 +99,36 @@
      This must mirror the bottom bar's natural RTL flex order. */
   #edgeNext{left:18px}
   #edgePrev{right:18px}
+
+  /* Corner-peel hint, as on the reference: a small triangular fold at the
+     outer corners of the visible page. The bottom corner (nearest the
+     direction of travel) carries a curved arrow like Heyzine's; the top
+     corner shows the same fold with no arrow, matching what it actually
+     does - a secondary, undecorated hint at the same click target. */
+  .peel{
+    position:absolute;width:34px;height:34px;z-index:21;cursor:pointer;
+    overflow:hidden;opacity:0;transition:opacity .18s;
+  }
+  .peel.show{opacity:1}
+  .peel.hide{display:none}
+  .peel::before{
+    content:'';position:absolute;width:48px;height:48px;
+    background:linear-gradient(135deg,#fff 0%,#fff 46%,#d8d8d8 47%,#f4f4f4 60%,#fff 100%);
+    box-shadow:-2px 2px 6px rgba(0,0,0,.22);
+  }
+  /* default = right-side (prev) corner */
+  .peel::before{bottom:-14px;right:-14px;transform:rotate(45deg)}
+  .peel.top::before{top:-14px;right:-14px;bottom:auto;transform:rotate(-45deg)}
+  /* .pn = left-side (next) corner: mirror the triangle to the opposite edge */
+  .peel.pn::before{right:auto;left:-14px;transform:rotate(-45deg)}
+  .peel.pn.top::before{right:auto;left:-14px;transform:rotate(45deg)}
+  .peelarrow{
+    position:absolute;bottom:2px;right:2px;width:16px;height:16px;
+    color:#8a8a8a;pointer-events:none;
+  }
+  .peel.pn .peelarrow{right:auto;left:2px}
+  .peelarrow svg{width:100%;height:100%;fill:none;stroke:currentColor;
+                 stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
   #zoomwrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
             transition:transform .22s cubic-bezier(.2,.8,.3,1);
             transform-origin:center center;will-change:transform}
@@ -239,6 +269,10 @@
     <div id="spreadfx"></div>
     <div id="book"></div>
     <div id="gutter"></div>
+    <div class="peel pn" id="peelNextB" onclick="nextPage()"><span class="peelarrow"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span></div>
+    <div class="peel pn top" id="peelNextT" onclick="nextPage()"></div>
+    <div class="peel" id="peelPrevB" onclick="prevPage()"><span class="peelarrow"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></span></div>
+    <div class="peel top" id="peelPrevT" onclick="prevPage()"></div>
   </div>
   <button class="edgebtn" id="edgePrev" onclick="prevPage()" title="עמוד קודם" aria-label="עמוד קודם">
     <svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
@@ -451,6 +485,19 @@ function layout() {
     g.style.width = gw + 'px';
     g.style.left = (bx + off + (bw - gw) / 2) + 'px';
   }
+
+  /* Corner-peel hints, mirroring the edge arrows: "next" hugs the left
+     edge (RTL forward), "prev" the right edge, one peel per corner. */
+  var PS = 34;
+  var nb = document.getElementById('peelNextB'), nt = document.getElementById('peelNextT');
+  var pb = document.getElementById('peelPrevB'), pt = document.getElementById('peelPrevT');
+  nb.style.left = nt.style.left = vx + 'px';
+  pb.style.left = pt.style.left = (vx + vw - PS) + 'px';
+  nt.style.top = pt.style.top = by + 'px';
+  nb.style.top = pb.style.top = (by + bh - PS) + 'px';
+  var hasNext = i < total - 1, hasPrev = i > 0;
+  nb.classList.toggle('hide', !hasNext); nt.classList.toggle('hide', !hasNext);
+  pb.classList.toggle('hide', !hasPrev); pt.classList.toggle('hide', !hasPrev);
 }
 
 function updateCounter() {
@@ -570,6 +617,13 @@ stage.addEventListener('wheel', function (e) {
   e.preventDefault();
   zoomBy(e.deltaY < 0 ? 1 : -1);
 }, { passive: false });
+
+/* Corner peels reveal on proximity hover, like the reference. */
+['peelNextB', 'peelNextT', 'peelPrevB', 'peelPrevT'].forEach(function (id) {
+  var el = document.getElementById(id);
+  el.addEventListener('pointerenter', function () { el.classList.add('show'); });
+  el.addEventListener('pointerleave', function () { el.classList.remove('show'); });
+});
 
 function setEdition(ed) {
   if (ed === edition) return;
