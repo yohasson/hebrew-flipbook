@@ -2,111 +2,200 @@
 <html dir="rtl" lang="he">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <title>הולך בדרכי — סיפור חיים, יעקב קבלה</title>
 <meta name="description" content="הולך בדרכי — סיפור חייו של יעקב קבלה. ספר לדפדוף."/>
 <meta name="robots" content="noindex, nofollow"/>
 <meta property="og:title" content="הולך בדרכי — סיפור חיים"/>
 <meta property="og:description" content="סיפור חייו של יעקב קבלה"/>
 <meta property="og:type" content="book"/>
+<meta name="theme-color" content="#121212"/>
 <link rel="preconnect" href="https://unpkg.com"/>
 <style>
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{height:100%;margin:0}
+  html,body{height:100%;margin:0;overscroll-behavior:none}
   body{
-    background:#1a1a1a;color:#e9e4dc;overflow:hidden;direction:rtl;
+    background:
+      radial-gradient(ellipse 120% 90% at 50% 42%, #1e1e24 0%, #17171b 45%, #121212 100%);
+    color:#ece7df;overflow:hidden;direction:rtl;
     font-family:"Segoe UI","Arial Hebrew",Arial,Helvetica,sans-serif;
+    -webkit-font-smoothing:antialiased;
   }
-  /* ---------- top ---------- */
+  /* ambient glow sitting behind the book */
+  #glow{
+    position:fixed;left:50%;top:46%;transform:translate(-50%,-50%);
+    width:min(78vw,1180px);height:min(62vh,760px);
+    background:radial-gradient(ellipse at center,
+      rgba(200,162,74,.16) 0%, rgba(150,130,90,.07) 38%, rgba(0,0,0,0) 72%);
+    filter:blur(58px);pointer-events:none;z-index:0;
+  }
+  /* ---------------- top bar ---------------- */
   #top{
-    position:fixed;top:0;right:0;left:0;height:52px;z-index:30;
-    display:flex;align-items:center;gap:.55rem;padding:0 .9rem;
-    background:linear-gradient(#1a1a1aee,#1a1a1a00);
+    position:fixed;top:0;right:0;left:0;height:54px;z-index:30;
+    display:flex;align-items:center;gap:.5rem;padding:0 1rem;
+    background:linear-gradient(#121212e0,#12121200);pointer-events:none;
   }
-  #top h1{font-size:.98rem;font-weight:600;margin:0;white-space:nowrap}
-  #top .sub{font-size:.78rem;opacity:.6;white-space:nowrap}
+  #top>*{pointer-events:auto}
+  #top h1{font-size:1rem;font-weight:600;margin:0;white-space:nowrap;letter-spacing:.01em}
+  #top .sub{font-size:.78rem;opacity:.55;white-space:nowrap}
   #top .sp{flex:1}
-  .btn{
-    font:inherit;font-size:.83rem;padding:.42rem .85rem;cursor:pointer;
-    border:1px solid #ffffff26;background:#ffffff12;color:#e9e4dc;
-    border-radius:8px;transition:.15s;white-space:nowrap;
+  .seg{
+    display:flex;gap:2px;padding:3px;border-radius:11px;
+    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
   }
-  .btn:hover{background:#ffffff22}
-  .btn:active{transform:translateY(1px)}
-  .btn.on{background:#c8a24a26;border-color:#c8a24a7a;color:#f2dda6}
-  .btn:disabled{opacity:.3;cursor:default}
-  /* ---------- stage ---------- */
-  #stage{position:absolute;inset:52px 0 74px 0;display:flex;
-         align-items:center;justify-content:center;padding:8px}
-  #book{transform:scaleX(-1)}
+  .seg button{
+    font:inherit;font-size:.78rem;padding:.34rem .7rem;cursor:pointer;
+    border:0;background:transparent;color:#b9b2a6;border-radius:8px;transition:.18s;
+  }
+  .seg button.on{background:rgba(200,162,74,.18);color:#f4dfa8;
+                 box-shadow:inset 0 0 0 1px rgba(200,162,74,.35)}
+  .seg button:hover:not(.on){color:#ece7df;background:rgba(255,255,255,.06)}
+  /* ---------------- stage ---------------- */
+  #stage{
+    position:absolute;inset:54px 0 96px 0;z-index:1;
+    display:flex;align-items:center;justify-content:center;padding:10px;
+    perspective:2600px;perspective-origin:50% 45%;
+  }
+  #stage.zoomed{overflow:auto;cursor:grab}
+  #stage.zoomed:active{cursor:grabbing}
+  #zoomwrap{position:absolute;inset:0;display:flex;align-items:center;
+            justify-content:center;
+            transition:transform .22s cubic-bezier(.2,.8,.3,1);
+            transform-origin:center center;will-change:transform}
+  #book{transform:scaleX(-1);position:relative;z-index:3}
   #book img{transform:scaleX(-1);width:100%;height:100%;display:block}
-  .page{background:#fff;overflow:hidden;
-        box-shadow:0 10px 34px rgba(0,0,0,.55)}
-  /* ---------- bottom ---------- */
-  #bottom{
-    position:fixed;bottom:0;right:0;left:0;height:74px;z-index:30;
-    display:flex;align-items:center;justify-content:center;gap:.6rem;
-    padding:0 .8rem;background:linear-gradient(#1a1a1a00,#1a1a1af2);
+  .page{background:#fff;overflow:hidden}
+  /* stacked page edges - gives the book real volume */
+  .stack{
+    position:absolute;z-index:1;pointer-events:none;
+    background:repeating-linear-gradient(to right,
+      #f4f1ea 0px,#f4f1ea 1px,#cfc9bd 1px,#cfc9bd 2px);
+    box-shadow:0 12px 30px rgba(0,0,0,.5);
   }
-  #counter{font-size:.85rem;opacity:.85;min-width:9.5rem;text-align:center;
-           font-variant-numeric:tabular-nums}
-  /* ---------- loader ---------- */
-  #load{position:fixed;inset:0;z-index:50;background:#1a1a1a;
+  #stackR{border-radius:0 3px 3px 0}
+  #stackL{border-radius:3px 0 0 3px}
+  /* soft contact shadow beneath the book */
+  #contact{
+    position:absolute;
+    background:radial-gradient(ellipse at center,
+      rgba(0,0,0,.6) 0%, rgba(0,0,0,.28) 45%, rgba(0,0,0,0) 74%);
+    filter:blur(14px);pointer-events:none;z-index:0;
+  }
+  /* gutter shading down the spine */
+  #gutter{
+    position:absolute;pointer-events:none;z-index:4;
+    background:linear-gradient(to right,
+      rgba(0,0,0,0) 0%, rgba(0,0,0,.30) 42%, rgba(0,0,0,.42) 50%,
+      rgba(0,0,0,.30) 58%, rgba(0,0,0,0) 100%);
+    mix-blend-mode:multiply;opacity:.9;
+  }
+  /* ---------------- glass toolbar ---------------- */
+  #bar{
+    position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:30;
+    display:flex;align-items:center;gap:.3rem;padding:.42rem .5rem;
+    border-radius:18px;
+    background:rgba(255,255,255,.07);
+    border:1px solid rgba(255,255,255,.13);
+    -webkit-backdrop-filter:blur(16px) saturate(150%);
+    backdrop-filter:blur(16px) saturate(150%);
+    box-shadow:0 10px 40px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.10);
+    max-width:calc(100vw - 20px);
+  }
+  .gbtn{
+    font:inherit;font-size:.82rem;padding:.46rem .82rem;cursor:pointer;
+    border:0;border-radius:12px;background:transparent;color:#ded7cb;
+    transition:.16s;white-space:nowrap;display:flex;align-items:center;gap:.3rem;
+  }
+  .gbtn:hover{background:rgba(255,255,255,.11);color:#fff}
+  .gbtn:active{transform:translateY(1px)}
+  .gbtn:disabled{opacity:.28;cursor:default;background:transparent}
+  .gsep{width:1px;height:22px;background:rgba(255,255,255,.13);margin:0 .18rem}
+  #counter{
+    font-size:.8rem;opacity:.9;min-width:9.6rem;text-align:center;
+    font-variant-numeric:tabular-nums;padding:0 .3rem;
+  }
+  #zlabel{font-size:.74rem;opacity:.6;min-width:2.7rem;text-align:center;
+          font-variant-numeric:tabular-nums}
+  /* ---------------- loader ---------------- */
+  #load{position:fixed;inset:0;z-index:60;
+        background:radial-gradient(ellipse at 50% 45%,#1e1e24,#121212);
         display:flex;align-items:center;justify-content:center;flex-direction:column;
-        gap:1rem;transition:opacity .4s}
+        gap:1.1rem;transition:opacity .5s}
   #load.done{opacity:0;pointer-events:none}
-  #bar{width:210px;height:3px;background:#ffffff1a;border-radius:3px;overflow:hidden}
-  #bar i{display:block;height:100%;width:0;background:#c8a24a;transition:width .2s}
-  #load p{font-size:.85rem;opacity:.6;margin:0}
-  @media (max-width:700px){
+  #load p{font-size:.86rem;opacity:.55;margin:0;letter-spacing:.02em}
+  #pbar{width:190px;height:2px;background:rgba(255,255,255,.10);
+        border-radius:2px;overflow:hidden}
+  #pbar i{display:block;height:100%;width:0;border-radius:2px;
+          background:linear-gradient(90deg,#c8a24a,#e8cf8a);transition:width .25s}
+  @media (max-width:760px){
     #top h1{font-size:.88rem} #top .sub{display:none}
-    .btn{padding:.36rem .6rem;font-size:.76rem}
-    #stage{inset:52px 0 68px 0;padding:4px}
-    #bottom{height:68px;gap:.4rem}
-    #counter{min-width:6.6rem;font-size:.78rem}
+    .seg button{padding:.3rem .55rem;font-size:.73rem}
+    #stage{inset:54px 0 84px 0;padding:4px}
+    #bar{bottom:12px;gap:.1rem;padding:.34rem .34rem}
+    .gbtn{padding:.42rem .6rem;font-size:.76rem}
+    #counter{min-width:6.4rem;font-size:.72rem}
+    .lbl{display:none}
+    #zlabel{display:none}
   }
 </style>
 </head>
 <body>
 
+<div id="glow"></div>
+
 <div id="load">
   <p>טוען את הספר…</p>
-  <div id="bar"><i></i></div>
+  <div id="pbar"><i></i></div>
 </div>
 
 <div id="top">
   <h1>הולך בדרכי</h1>
   <span class="sub">סיפור חיים — יעקב קבלה</span>
   <span class="sp"></span>
-  <button class="btn on" id="ed-regular" onclick="setEdition('regular')">רגילה</button>
-  <button class="btn" id="ed-large" onclick="setEdition('large')">אותיות גדולות</button>
+  <div class="seg">
+    <button id="ed-regular" class="on" onclick="setEdition('regular')">רגילה</button>
+    <button id="ed-large" onclick="setEdition('large')">אותיות גדולות</button>
+  </div>
 </div>
 
-<div id="stage"><div id="book"></div></div>
+<div id="stage">
+  <div id="zoomwrap">
+    <div id="contact"></div>
+    <div class="stack" id="stackL"></div>
+    <div class="stack" id="stackR"></div>
+    <div id="book"></div>
+    <div id="gutter"></div>
+  </div>
+</div>
 
-<div id="bottom">
-  <button class="btn" onclick="prevPage()">עמוד קודם ›</button>
+<div id="bar">
+  <button class="gbtn" onclick="prevPage()" id="btnPrev">עמוד קודם ›</button>
   <span id="counter">—</span>
-  <button class="btn" onclick="nextPage()">‹ עמוד הבא</button>
-  <button class="btn" onclick="toggleFullscreen()">מסך מלא</button>
+  <button class="gbtn" onclick="nextPage()" id="btnNext">‹ עמוד הבא</button>
+  <span class="gsep"></span>
+  <button class="gbtn" onclick="zoomBy(-1)" title="הקטן">−</button>
+  <span id="zlabel">100%</span>
+  <button class="gbtn" onclick="zoomBy(1)" title="הגדל">+</button>
+  <span class="gsep"></span>
+  <button class="gbtn" onclick="toggleFullscreen()"><span class="lbl">מסך מלא</span><span aria-hidden="true">⛶</span></button>
 </div>
 
 <script src="https://unpkg.com/page-flip@2.0.7/dist/js/page-flip.browser.js"></script>
 <script>
-var EDITIONS = {"regular": {"pages": 68, "label": "רגילה"}, "large": {"pages": 84, "label": "אותיות גדולות"}};
+var EDITIONS = {"regular": {"pages": 68}, "large": {"pages": 84}};
 var edition = 'regular';
-var flip = null, total = 0;
+var flip = null, total = 0, zoom = 1;
 var stage = document.getElementById('stage');
+var wrap = document.getElementById('zoomwrap');
 
 function srcs(ed) {
   var n = EDITIONS[ed].pages, out = [];
-  for (var i = 1; i <= n; i++) {
+  for (var i = 1; i <= n; i++)
     out.push('images/' + ed + '/page_' + String(i).padStart(3, '0') + '.jpg');
-  }
   return out;
 }
 
-/* Preload just enough to render the opening spread without a flash. */
 function warm(list, count, done) {
   var left = Math.min(count, list.length), loaded = 0;
   if (!left) return done();
@@ -114,7 +203,7 @@ function warm(list, count, done) {
     var im = new Image();
     im.onload = im.onerror = function () {
       loaded++;
-      document.querySelector('#bar i').style.width = (loaded / left * 100) + '%';
+      document.querySelector('#pbar i').style.width = (loaded / left * 100) + '%';
       if (loaded >= left) done();
     };
     im.src = list[i];
@@ -127,9 +216,9 @@ function build(startPage) {
   var list = srcs(edition);
   total = list.length;
 
-  var availW = stage.clientWidth - 12, availH = stage.clientHeight - 12;
-  var ratio = 240 / 170;                      // real trim proportions
-  var single = availW < 760;                  // phones: one page at a time
+  var availW = stage.clientWidth - 16, availH = stage.clientHeight - 16;
+  var ratio = 240 / 170;
+  var single = availW < 780;
   var w, h;
   if (single) {
     w = availW; h = w * ratio;
@@ -157,16 +246,62 @@ function build(startPage) {
     size: 'fixed',
     showCover: true,
     usePortrait: true,
-    maxShadowOpacity: 0.5,
-    flippingTime: 750,
+    maxShadowOpacity: 0.8,        // deep dynamic shadows
+    flippingTime: 820,
     mobileScrollSupport: false,
-    swipeDistance: 25,
+    swipeDistance: 24,
     drawShadow: true
   });
   flip.loadFromHTML(el.querySelectorAll('.page'));
-  flip.on('flip', updateCounter);
+  flip.on('flip', function () { updateCounter(); layout(); });
   if (startPage && startPage > 1 && startPage <= total) flip.turnToPage(startPage - 1);
   updateCounter();
+  layout();
+}
+
+/* page-stack volume, contact shadow and gutter, sized to the current spread */
+function layout() {
+  if (!flip) return;
+  var el = document.getElementById('book');
+  var bw = el.offsetWidth, bh = el.offsetHeight;
+  if (!bw || !bh) return;
+  var bx = el.offsetLeft, by = el.offsetTop;   // position inside #zoomwrap
+  var one = flip.getOrientation && flip.getOrientation() === 'portrait';
+  var i = flip.getCurrentPageIndex();
+
+  var maxStack = Math.max(4, Math.min(13, bh * 0.016));
+  var readFrac = total > 1 ? i / (total - 1) : 0;
+  var right = Math.round(maxStack * readFrac);
+  var left = Math.round(maxStack * (1 - readFrac));
+  var inset = Math.round(bh * 0.006);
+
+  var sL = document.getElementById('stackL');
+  var sR = document.getElementById('stackR');
+  sL.style.height = sR.style.height = (bh - inset * 2) + 'px';
+  sL.style.top = sR.style.top = (by + inset) + 'px';
+  sL.style.width = Math.max(0, left) + 'px';
+  sR.style.width = Math.max(0, right) + 'px';
+  sL.style.opacity = left > 1 ? .95 : 0;
+  sR.style.opacity = right > 1 ? .95 : 0;
+  sL.style.left = (bx - left + 1) + 'px';
+  sR.style.left = (bx + bw - 1) + 'px';
+
+  var c = document.getElementById('contact');
+  c.style.width = (bw * 1.06) + 'px';
+  c.style.height = Math.round(bh * 0.07) + 'px';
+  c.style.left = (bx + bw / 2 - bw * 0.53) + 'px';
+  c.style.top = (by + bh - 6) + 'px';
+
+  var g = document.getElementById('gutter');
+  if (one) { g.style.opacity = 0; }
+  else {
+    var gw = Math.round(bw * 0.085);
+    g.style.opacity = .9;
+    g.style.height = bh + 'px';
+    g.style.top = by + 'px';
+    g.style.width = gw + 'px';
+    g.style.left = (bx + (bw - gw) / 2) + 'px';
+  }
 }
 
 function updateCounter() {
@@ -174,47 +309,93 @@ function updateCounter() {
   var i = flip.getCurrentPageIndex();
   var one = flip.getOrientation && flip.getOrientation() === 'portrait';
   var t;
-  if (one || i === 0 || i >= total - 1) {
-    t = 'עמוד ' + (i + 1) + ' מתוך ' + total;
-  } else {
-    t = 'עמודים ' + (i + 1) + '\u2013' + (i + 2) + ' מתוך ' + total;
-  }
+  if (one || i === 0 || i >= total - 1) t = 'עמוד ' + (i + 1) + ' מתוך ' + total;
+  else t = 'עמודים ' + (i + 1) + '\u2013' + (i + 2) + ' מתוך ' + total;
   document.getElementById('counter').textContent = t;
+  document.getElementById('btnPrev').disabled = (i <= 0);
+  document.getElementById('btnNext').disabled = (i >= total - 1);
 }
 
-/* RTL: "next page" moves deeper into the book. The container is mirrored, so
-   the library's own next/prev already read correctly for a Hebrew reader. */
 function nextPage() { if (flip) flip.flipNext(); }
 function prevPage() { if (flip) flip.flipPrev(); }
+
+/* ---------------- zoom ---------------- */
+var ZOOMS = [0.75, 1, 1.25, 1.5, 2, 2.5];
+function zoomBy(dir) {
+  var idx = ZOOMS.indexOf(zoom);
+  if (idx < 0) idx = 1;
+  idx = Math.max(0, Math.min(ZOOMS.length - 1, idx + dir));
+  setZoom(ZOOMS[idx]);
+}
+function setZoom(z) {
+  zoom = z;
+  wrap.style.transform = 'scale(' + z + ')';
+  document.getElementById('zlabel').textContent = Math.round(z * 100) + '%';
+  stage.classList.toggle('zoomed', z > 1);
+  if (z > 1) setTimeout(centreScroll, 260);   // wait for the scale transition
+}
+
+/* In RTL, scrollLeft runs from 0 at the right edge to a negative minimum. */
+function centreScroll() {
+  var overX = stage.scrollWidth - stage.clientWidth;
+  var overY = stage.scrollHeight - stage.clientHeight;
+  var rtl = getComputedStyle(stage).direction === 'rtl';
+  stage.scrollTop = overY / 2;
+  stage.scrollLeft = rtl ? -(overX / 2) : (overX / 2);
+}
+/* drag to pan while zoomed */
+(function () {
+  var down = false, sx = 0, sy = 0, sl = 0, st = 0;
+  stage.addEventListener('pointerdown', function (e) {
+    if (zoom <= 1 || e.target.closest('#book')) return;
+    down = true; sx = e.clientX; sy = e.clientY;
+    sl = stage.scrollLeft; st = stage.scrollTop;
+  });
+  window.addEventListener('pointermove', function (e) {
+    if (!down) return;
+    stage.scrollLeft = sl - (e.clientX - sx);
+    stage.scrollTop = st - (e.clientY - sy);
+  });
+  window.addEventListener('pointerup', function () { down = false; });
+})();
+stage.addEventListener('wheel', function (e) {
+  if (!e.ctrlKey) return;
+  e.preventDefault();
+  zoomBy(e.deltaY < 0 ? 1 : -1);
+}, { passive: false });
 
 function setEdition(ed) {
   if (ed === edition) return;
   edition = ed;
   document.getElementById('ed-regular').classList.toggle('on', ed === 'regular');
   document.getElementById('ed-large').classList.toggle('on', ed === 'large');
-  document.getElementById('load').classList.remove('done');
-  document.querySelector('#bar i').style.width = '0';
+  var l = document.getElementById('load');
+  l.classList.remove('done');
+  document.querySelector('#pbar i').style.width = '0';
   warm(srcs(ed), 4, function () {
-    build(1);
-    document.getElementById('load').classList.add('done');
+    build(1); setZoom(1);
+    l.classList.add('done');
   });
   try { localStorage.setItem('hb_ed', ed); } catch (e) {}
 }
 
 function toggleFullscreen() {
-  if (!document.fullscreenElement) {
-    (document.documentElement.requestFullscreen ||
-     document.documentElement.webkitRequestFullscreen).call(document.documentElement);
+  var d = document.documentElement;
+  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+    (d.requestFullscreen || d.webkitRequestFullscreen || function () {}).call(d);
   } else {
-    (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    (document.exitFullscreen || document.webkitExitFullscreen || function () {}).call(document);
   }
 }
 
 document.addEventListener('keydown', function (e) {
   if (e.target.tagName === 'INPUT') return;
-  if (e.key === 'ArrowRight') prevPage();     // RTL: right = back
+  if (e.key === 'ArrowRight') prevPage();
   if (e.key === 'ArrowLeft') nextPage();
   if (e.key === 'f' || e.key === 'F') toggleFullscreen();
+  if (e.key === '+' || e.key === '=') zoomBy(1);
+  if (e.key === '-' || e.key === '_') zoomBy(-1);
+  if (e.key === '0') setZoom(1);
 });
 
 var rt;
