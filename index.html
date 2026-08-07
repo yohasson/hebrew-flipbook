@@ -79,6 +79,23 @@
   }
   #stage.zoomed{overflow:auto;cursor:grab}
   #stage.zoomed:active{cursor:grabbing}
+
+  /* Heyzine-style edge arrows, overlaid on the book at mid-height rather than
+     living only in the bottom bar. Hidden entirely at the start/end of the book. */
+  .edgebtn{
+    position:absolute;top:50%;z-index:20;width:38px;height:38px;
+    margin-top:-19px;border:0;border-radius:50%;cursor:pointer;
+    background:rgba(255,255,255,.85);color:#3c3c3c;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 1px 4px rgba(0,0,0,.18);transition:background .15s,opacity .15s;
+  }
+  .edgebtn:hover{background:#fff}
+  .edgebtn:active{background:#e6e6e6}
+  .edgebtn.hide{opacity:0;pointer-events:none}
+  .edgebtn svg{width:22px;height:22px;fill:none;stroke:currentColor;
+               stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  #edgePrev{left:18px}
+  #edgeNext{right:18px}
   #zoomwrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
             transition:transform .22s cubic-bezier(.2,.8,.3,1);
             transform-origin:center center;will-change:transform}
@@ -220,6 +237,12 @@
     <div id="book"></div>
     <div id="gutter"></div>
   </div>
+  <button class="edgebtn" id="edgePrev" onclick="prevPage()" title="עמוד קודם" aria-label="עמוד קודם">
+    <svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+  </button>
+  <button class="edgebtn" id="edgeNext" onclick="nextPage()" title="עמוד הבא" aria-label="עמוד הבא">
+    <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+  </button>
 </div>
 
 <div id="bottom">
@@ -437,6 +460,8 @@ function updateCounter() {
   document.getElementById('counter').textContent = t;
   document.getElementById('btnPrev').disabled = (i <= 0);
   document.getElementById('btnNext').disabled = (i >= total - 1);
+  document.getElementById('edgePrev').classList.toggle('hide', i <= 0);
+  document.getElementById('edgeNext').classList.toggle('hide', i >= total - 1);
   var s = document.getElementById('scrub');
   if (!scrubbing) s.value = i + 1;
 }
