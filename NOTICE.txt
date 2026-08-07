@@ -1,0 +1,9 @@
+Copyright (c) 2026 Yaakov Kabala family. All rights reserved.
+
+The text and photographs in this repository are a private family memoir
+("הולך בדרכי" — Holech Bedarki) and are NOT licensed for reuse,
+redistribution or adaptation.
+
+The page-flip library used by this site (page-flip / StPageFlip) is loaded
+from a CDN and is separately licensed under the MIT License,
+Copyright (c) 2020 Nodlik — https://github.com/Nodlik/StPageFlip

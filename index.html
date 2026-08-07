@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>הולך בדרכי — סיפור חיים, יעקב קבלה</title>
+<meta name="description" content="הולך בדרכי — סיפור חייו של יעקב קבלה. ספר לדפדוף."/>
+<meta property="og:title" content="הולך בדרכי — סיפור חיים"/>
+<meta property="og:description" content="סיפור חייו של יעקב קבלה"/>
+<meta property="og:type" content="book"/>
+<link rel="preconnect" href="https://unpkg.com"/>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;margin:0}
+  body{
+    background:#1a1a1a;color:#e9e4dc;overflow:hidden;direction:rtl;
+    font-family:"Segoe UI","Arial Hebrew",Arial,Helvetica,sans-serif;
+  }
+  /* ---------- top ---------- */
+  #top{
+    position:fixed;top:0;right:0;left:0;height:52px;z-index:30;
+    display:flex;align-items:center;gap:.55rem;padding:0 .9rem;
+    background:linear-gradient(#1a1a1aee,#1a1a1a00);
+  }
+  #top h1{font-size:.98rem;font-weight:600;margin:0;white-space:nowrap}
+  #top .sub{font-size:.78rem;opacity:.6;white-space:nowrap}
+  #top .sp{flex:1}
+  .btn{
+    font:inherit;font-size:.83rem;padding:.42rem .85rem;cursor:pointer;
+    border:1px solid #ffffff26;background:#ffffff12;color:#e9e4dc;
+    border-radius:8px;transition:.15s;white-space:nowrap;
+  }
+  .btn:hover{background:#ffffff22}
+  .btn:active{transform:translateY(1px)}
+  .btn.on{background:#c8a24a26;border-color:#c8a24a7a;color:#f2dda6}
+  .btn:disabled{opacity:.3;cursor:default}
+  /* ---------- stage ---------- */
+  #stage{position:absolute;inset:52px 0 74px 0;display:flex;
+         align-items:center;justify-content:center;padding:8px}
+  #book{transform:scaleX(-1)}
+  #book img{transform:scaleX(-1);width:100%;height:100%;display:block}
+  .page{background:#fff;overflow:hidden;
+        box-shadow:0 10px 34px rgba(0,0,0,.55)}
+  /* ---------- bottom ---------- */
+  #bottom{
+    position:fixed;bottom:0;right:0;left:0;height:74px;z-index:30;
+    display:flex;align-items:center;justify-content:center;gap:.6rem;
+    padding:0 .8rem;background:linear-gradient(#1a1a1a00,#1a1a1af2);
+  }
+  #counter{font-size:.85rem;opacity:.85;min-width:9.5rem;text-align:center;
+           font-variant-numeric:tabular-nums}
+  /* ---------- loader ---------- */
+  #load{position:fixed;inset:0;z-index:50;background:#1a1a1a;
+        display:flex;align-items:center;justify-content:center;flex-direction:column;
+        gap:1rem;transition:opacity .4s}
+  #load.done{opacity:0;pointer-events:none}
+  #bar{width:210px;height:3px;background:#ffffff1a;border-radius:3px;overflow:hidden}
+  #bar i{display:block;height:100%;width:0;background:#c8a24a;transition:width .2s}
+  #load p{font-size:.85rem;opacity:.6;margin:0}
+  @media (max-width:700px){
+    #top h1{font-size:.88rem} #top .sub{display:none}
+    .btn{padding:.36rem .6rem;font-size:.76rem}
+    #stage{inset:52px 0 68px 0;padding:4px}
+    #bottom{height:68px;gap:.4rem}
+    #counter{min-width:6.6rem;font-size:.78rem}
+  }
+</style>
+</head>
+<body>
+
+<div id="load">
+  <p>טוען את הספר…</p>
+  <div id="bar"><i></i></div>
+</div>
+
+<div id="top">
+  <h1>הולך בדרכי</h1>
+  <span class="sub">סיפור חיים — יעקב קבלה</span>
+  <span class="sp"></span>
+  <button class="btn on" id="ed-regular" onclick="setEdition('regular')">רגילה</button>
+  <button class="btn" id="ed-large" onclick="setEdition('large')">אותיות גדולות</button>
+</div>
+
+<div id="stage"><div id="book"></div></div>
+
+<div id="bottom">
+  <button class="btn" onclick="prevPage()">עמוד קודם ›</button>
+  <span id="counter">—</span>
+  <button class="btn" onclick="nextPage()">‹ עמוד הבא</button>
+  <button class="btn" onclick="toggleFullscreen()">מסך מלא</button>
+</div>
+
+<script src="https://unpkg.com/page-flip@2.0.7/dist/js/page-flip.browser.js"></script>
+<script>
+var EDITIONS = {"regular": {"pages": 68, "label": "רגילה"}, "large": {"pages": 84, "label": "אותיות גדולות"}};
+var edition = 'regular';
+var flip = null, total = 0;
+var stage = document.getElementById('stage');
+
+function srcs(ed) {
+  var n = EDITIONS[ed].pages, out = [];
+  for (var i = 1; i <= n; i++) {
+    out.push('images/' + ed + '/page_' + String(i).padStart(3, '0') + '.jpg');
+  }
+  return out;
+}
+
+/* Preload just enough to render the opening spread without a flash. */
+function warm(list, count, done) {
+  var left = Math.min(count, list.length), loaded = 0;
+  if (!left) return done();
+  for (var i = 0; i < left; i++) {
+    var im = new Image();
+    im.onload = im.onerror = function () {
+      loaded++;
+      document.querySelector('#bar i').style.width = (loaded / left * 100) + '%';
+      if (loaded >= left) done();
+    };
+    im.src = list[i];
+  }
+}
+
+function build(startPage) {
+  var el = document.getElementById('book');
+  el.innerHTML = '';
+  var list = srcs(edition);
+  total = list.length;
+
+  var availW = stage.clientWidth - 12, availH = stage.clientHeight - 12;
+  var ratio = 240 / 170;                      // real trim proportions
+  var single = availW < 760;                  // phones: one page at a time
+  var w, h;
+  if (single) {
+    w = availW; h = w * ratio;
+    if (h > availH) { h = availH; w = h / ratio; }
+  } else {
+    h = availH; w = h / ratio;
+    if (w * 2 > availW) { w = availW / 2; h = w * ratio; }
+  }
+  w = Math.floor(w); h = Math.floor(h);
+
+  list.forEach(function (src, i) {
+    var d = document.createElement('div');
+    d.className = 'page';
+    if (i === 0 || i === list.length - 1) d.setAttribute('data-density', 'hard');
+    var im = document.createElement('img');
+    im.src = src; im.alt = 'עמוד ' + (i + 1);
+    im.loading = i < 6 ? 'eager' : 'lazy';
+    im.draggable = false;
+    d.appendChild(im);
+    el.appendChild(d);
+  });
+
+  flip = new St.PageFlip(el, {
+    width: w, height: h,
+    size: 'fixed',
+    showCover: true,
+    usePortrait: true,
+    maxShadowOpacity: 0.5,
+    flippingTime: 750,
+    mobileScrollSupport: false,
+    swipeDistance: 25,
+    drawShadow: true
+  });
+  flip.loadFromHTML(el.querySelectorAll('.page'));
+  flip.on('flip', updateCounter);
+  if (startPage && startPage > 1 && startPage <= total) flip.turnToPage(startPage - 1);
+  updateCounter();
+}
+
+function updateCounter() {
+  if (!flip) return;
+  var i = flip.getCurrentPageIndex();
+  var one = flip.getOrientation && flip.getOrientation() === 'portrait';
+  var t;
+  if (one || i === 0 || i >= total - 1) {
+    t = 'עמוד ' + (i + 1) + ' מתוך ' + total;
+  } else {
+    t = 'עמודים ' + (i + 1) + '\u2013' + (i + 2) + ' מתוך ' + total;
+  }
+  document.getElementById('counter').textContent = t;
+}
+
+/* RTL: "next page" moves deeper into the book. The container is mirrored, so
+   the library's own next/prev already read correctly for a Hebrew reader. */
+function nextPage() { if (flip) flip.flipNext(); }
+function prevPage() { if (flip) flip.flipPrev(); }
+
+function setEdition(ed) {
+  if (ed === edition) return;
+  edition = ed;
+  document.getElementById('ed-regular').classList.toggle('on', ed === 'regular');
+  document.getElementById('ed-large').classList.toggle('on', ed === 'large');
+  document.getElementById('load').classList.remove('done');
+  document.querySelector('#bar i').style.width = '0';
+  warm(srcs(ed), 4, function () {
+    build(1);
+    document.getElementById('load').classList.add('done');
+  });
+  try { localStorage.setItem('hb_ed', ed); } catch (e) {}
+}
+
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    (document.documentElement.requestFullscreen ||
+     document.documentElement.webkitRequestFullscreen).call(document.documentElement);
+  } else {
+    (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+  }
+}
+
+document.addEventListener('keydown', function (e) {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowRight') prevPage();     // RTL: right = back
+  if (e.key === 'ArrowLeft') nextPage();
+  if (e.key === 'f' || e.key === 'F') toggleFullscreen();
+});
+
+var rt;
+window.addEventListener('resize', function () {
+  clearTimeout(rt);
+  rt = setTimeout(function () {
+    var cur = flip ? flip.getCurrentPageIndex() + 1 : 1;
+    build(cur);
+  }, 200);
+});
+
+try {
+  var saved = localStorage.getItem('hb_ed');
+  if (saved && EDITIONS[saved]) {
+    edition = saved;
+    document.getElementById('ed-regular').classList.toggle('on', saved === 'regular');
+    document.getElementById('ed-large').classList.toggle('on', saved === 'large');
+  }
+} catch (e) {}
+
+warm(srcs(edition), 4, function () {
+  build(1);
+  document.getElementById('load').classList.add('done');
+});
+</script>
+</body>
+</html>
