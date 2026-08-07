@@ -80,8 +80,8 @@
   #stage.zoomed{overflow:auto;cursor:grab}
   #stage.zoomed:active{cursor:grabbing}
 
-  /* Heyzine-style edge arrows, overlaid on the book at mid-height rather than
-     living only in the bottom bar. Hidden entirely at the start/end of the book. */
+  /* Heyzine-style edge arrows, positioned outside the page in layout() (not
+     pinned to the viewport edge), matching the reference exactly. */
   .edgebtn{
     position:absolute;top:50%;z-index:20;width:38px;height:38px;
     margin-top:-19px;border:0;border-radius:50%;cursor:pointer;
@@ -94,11 +94,10 @@
   .edgebtn.hide{opacity:0;pointer-events:none}
   .edgebtn svg{width:22px;height:22px;fill:none;stroke:currentColor;
                stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-  /* RTL: "next" advances the book (visually moves content right-to-left, so
-     sits on the LEFT edge); "prev" returns toward the cover on the right.
-     This must mirror the bottom bar's natural RTL flex order. */
-  #edgeNext{left:18px}
-  #edgePrev{right:18px}
+  /* Heyzine's own reply-arrow glyph, traced from their sprite (iconset2_6.png),
+     used for the edge buttons and the corner-peel hint so both match. "next"
+     (left edge, forward) mirrors the same path used for "prev" (right edge). */
+  .edgebtn.flip svg, .peelarrow.flip svg{transform:scaleX(-1)}
 
   /* Corner-peel hint, as on the reference: a small triangular fold at the
      outer corners of the visible page. The bottom corner (nearest the
@@ -269,17 +268,17 @@
     <div id="spreadfx"></div>
     <div id="book"></div>
     <div id="gutter"></div>
-    <div class="peel pn" id="peelNextB" onclick="nextPage()"><span class="peelarrow"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span></div>
+    <div class="peel pn" id="peelNextB" onclick="nextPage()"><span class="peelarrow flip"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg></span></div>
     <div class="peel pn top" id="peelNextT" onclick="nextPage()"></div>
-    <div class="peel" id="peelPrevB" onclick="prevPage()"><span class="peelarrow"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></span></div>
+    <div class="peel" id="peelPrevB" onclick="prevPage()"><span class="peelarrow"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg></span></div>
     <div class="peel top" id="peelPrevT" onclick="prevPage()"></div>
+    <button class="edgebtn" id="edgePrev" onclick="prevPage()" title="עמוד קודם" aria-label="עמוד קודם">
+      <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+    </button>
+    <button class="edgebtn flip" id="edgeNext" onclick="nextPage()" title="עמוד הבא" aria-label="עמוד הבא">
+      <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+    </button>
   </div>
-  <button class="edgebtn" id="edgePrev" onclick="prevPage()" title="עמוד קודם" aria-label="עמוד קודם">
-    <svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
-  </button>
-  <button class="edgebtn" id="edgeNext" onclick="nextPage()" title="עמוד הבא" aria-label="עמוד הבא">
-    <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
-  </button>
 </div>
 
 <div id="bottom">
@@ -498,6 +497,17 @@ function layout() {
   var hasNext = i < total - 1, hasPrev = i > 0;
   nb.classList.toggle('hide', !hasNext); nt.classList.toggle('hide', !hasNext);
   pb.classList.toggle('hide', !hasPrev); pt.classList.toggle('hide', !hasPrev);
+
+  /* Edge arrows sit OUTSIDE the page, like the reference, with a fixed gap -
+     not pinned to the viewport edge, so they track the book at every size. */
+  var EGAP = 14, EB = 38;
+  var edgeNext = document.getElementById('edgeNext'), edgePrev = document.getElementById('edgePrev');
+  edgeNext.style.left = (vx - EGAP - EB) + 'px';
+  edgeNext.style.top = (by + bh / 2) + 'px';
+  edgePrev.style.left = (vx + vw + EGAP) + 'px';
+  edgePrev.style.top = (by + bh / 2) + 'px';
+  edgeNext.classList.toggle('hide', !hasNext);
+  edgePrev.classList.toggle('hide', !hasPrev);
 }
 
 function updateCounter() {
