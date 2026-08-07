@@ -94,8 +94,11 @@
   .edgebtn.hide{opacity:0;pointer-events:none}
   .edgebtn svg{width:22px;height:22px;fill:none;stroke:currentColor;
                stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-  #edgePrev{left:18px}
-  #edgeNext{right:18px}
+  /* RTL: "next" advances the book (visually moves content right-to-left, so
+     sits on the LEFT edge); "prev" returns toward the cover on the right.
+     This must mirror the bottom bar's natural RTL flex order. */
+  #edgeNext{left:18px}
+  #edgePrev{right:18px}
   #zoomwrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
             transition:transform .22s cubic-bezier(.2,.8,.3,1);
             transform-origin:center center;will-change:transform}
