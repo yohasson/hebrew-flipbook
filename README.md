@@ -27,6 +27,14 @@ images/large/         large-print edition, 84 pages
 Page images are served at screen resolution so the site loads quickly on
 mobile data. The 300 DPI print masters are kept outside this repository.
 
-Built with [StPageFlip](https://github.com/Nodlik/StPageFlip) (MIT).
+Built with [StPageFlip](https://github.com/Nodlik/StPageFlip) (MIT),
+vendored locally in `vendor/` — see `HANDOFF.md` before changing that.
+
+**Rebuilding this site from a new edit of the book?** Read `HANDOFF.md`
+first — it covers the full build pipeline, a real pagination mismatch
+between the current print PDFs and these deployed images, everything
+measured against the Heyzine reference this was styled on, and several
+non-obvious bugs (and their fixes) that only surface under real
+interaction testing, not a quick look.
 
 See `NOTICE.txt` — the memoir text and photographs are not licensed for reuse.
