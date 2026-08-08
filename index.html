@@ -74,6 +74,12 @@
   .ico:disabled{opacity:.3;cursor:default;background:transparent}
   .ico svg{width:20px;height:20px;display:block;fill:none;stroke:currentColor;
            stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  /* Paper-swatch icon fills: id-selector specificity beats the generic
+     ".ico svg{fill:none}" rule above without needing !important, so each
+     swatch renders in its actual paper colour rather than an empty outline. */
+  #paper-white{fill:#fff;stroke:#b9b9b9}
+  #paper-cream{fill:#f6ecd4}
+  #paper-aged{fill:#ecd7a6}
   #zlabel{font-size:.72rem;color:#8a8a8a;min-width:2.6rem;text-align:center;
           font-variant-numeric:tabular-nums;user-select:none}
 
@@ -186,7 +192,25 @@
         transition:transform .42s cubic-bezier(.25,.85,.3,1);will-change:transform}
   #book.nofx{transition:none}
   #book img{transform:scaleX(-1);width:100%;height:100%;display:block}
-  .page{background:#fff;overflow:hidden;box-shadow:0 0 20px rgba(0,0,0,.2)}
+  .page{background:#fff;overflow:hidden;box-shadow:0 0 20px rgba(0,0,0,.2);position:relative}
+  /* Paper-tone overlay. Page content is a flat scanned JPEG (not live text),
+     so re-colouring the paper itself means tinting on TOP of the image
+     rather than changing the image or any page background colour - a
+     mix-blend-mode:multiply layer darkens toward the tint while leaving the
+     scan's own black ink strokes essentially untouched. Default (no
+     data-paper attribute, or "white") renders nothing at all. Sits on
+     .page::after rather than on #book itself so it regenerates automatically
+     every time build() tears down and recreates the .page divs (a class
+     toggled on #book would be wiped by el.innerHTML=''; <html> persists). */
+  .page::after{content:'';position:absolute;inset:0;pointer-events:none}
+  html[data-paper="cream"] .page::after{
+    background:radial-gradient(130% 140% at 50% 38%,rgba(0,0,0,0) 55%,rgba(110,80,35,.10) 100%),#f6ecd4;
+    mix-blend-mode:multiply;opacity:.5;
+  }
+  html[data-paper="aged"] .page::after{
+    background:radial-gradient(130% 140% at 50% 38%,rgba(0,0,0,0) 40%,rgba(80,55,15,.24) 100%),#ecd7a6;
+    mix-blend-mode:multiply;opacity:.68;
+  }
   /* Heyzine has no page-edge stack; the reference book sits as two clean sheets.
      Kept out of the DOM entirely rather than hidden, so layout() stays cheap. */
   #spreadfx{
@@ -343,6 +367,17 @@
   <button class="ico" onclick="toggleFullscreen()" title="מסך מלא" aria-label="מסך מלא">
     <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
   </button>
+  <!-- Paper-tone picker: cycles white -> cream -> aged sepia. Reuses the
+       sun/moon "swap which svg is visible" pattern from the theme toggle -
+       three identically-shaped page swatches, only one shown at a time, so
+       the icon itself previews the current tone instead of needing a label.
+       A warm, worn paper option suits a family memoir far better than the
+       stark white default this reader started with. -->
+  <button class="ico" id="paperbtn" onclick="cyclePaper()" title="צבע נייר" aria-label="צבע נייר">
+    <svg viewBox="0 0 24 24" id="paper-white"><rect x="5" y="3" width="14" height="18" rx="1.6"/></svg>
+    <svg viewBox="0 0 24 24" id="paper-cream" style="display:none"><rect x="5" y="3" width="14" height="18" rx="1.6"/></svg>
+    <svg viewBox="0 0 24 24" id="paper-aged" style="display:none"><rect x="5" y="3" width="14" height="18" rx="1.6"/></svg>
+  </button>
   <button class="ico" id="sndbtn" onclick="toggleSound()" title="צליל דפדוף" aria-label="צליל דפדוף">
     <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path id="wv1" d="M16.5 8.8a4.5 4.5 0 0 1 0 6.4"/><path id="wv2" d="M19 6.3a8 8 0 0 1 0 11.4"/><path id="mute" d="M17 9.5l5 5m0-5l-5 5" style="display:none"/></svg>
   </button>
@@ -450,6 +485,38 @@ function toggleTheme() {
   try { localStorage.setItem('hb_theme', dark ? 'dark' : 'light'); } catch (e) {}
 }
 paintThemeIcon(document.documentElement.classList.contains('dark'));
+
+/* ---------------- paper tone ----------------
+   Purely cosmetic tint over the page images (see .page::after in the CSS
+   above for why it's an overlay rather than a swapped image/background) -
+   cycles white (the original stark scan colour) -> cream -> aged sepia.
+   Applied as a data-attribute on <html> rather than a class on #book,
+   because build() calls el.innerHTML='' on #book every edition switch /
+   resize / reload, which would wipe a class living there; <html> persists
+   across all of that so every freshly-created .page::after just picks the
+   tint straight back up with zero extra JS. */
+var PAPERS = ['white', 'cream', 'aged'];
+var paper = 'white';
+try { paper = localStorage.getItem('hb_paper') || 'white'; } catch (e) {}
+function paintPaperIcon(p) {
+  document.getElementById('paper-white').style.display = p === 'white' ? '' : 'none';
+  document.getElementById('paper-cream').style.display = p === 'cream' ? '' : 'none';
+  document.getElementById('paper-aged').style.display = p === 'aged' ? '' : 'none';
+  var labels = { white: 'לבן', cream: 'קרם', aged: 'ישן' };
+  var label = 'צבע נייר (' + labels[p] + ')';
+  var btn = document.getElementById('paperbtn');
+  btn.title = label; btn.setAttribute('aria-label', label);
+}
+function setPaper(p) {
+  paper = p;
+  document.documentElement.setAttribute('data-paper', p);
+  paintPaperIcon(p);
+  try { localStorage.setItem('hb_paper', p); } catch (e) {}
+}
+function cyclePaper() {
+  setPaper(PAPERS[(PAPERS.indexOf(paper) + 1) % PAPERS.length]);
+}
+setPaper(paper);
 
 function srcs(ed) {
   var n = EDITIONS[ed].pages, out = [];
