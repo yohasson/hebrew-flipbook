@@ -1,8 +1,10 @@
 # HANDOFF — rebuilding the הולך בדרכי flipbook from the final edited book
 
-Written 8 Aug 2026, for whoever picks this up next after Yossi finishes the
-final text edit of the book. This is everything I learned building and
-fixing the current site, so you don't have to rediscover it.
+Written 8 Aug 2026, updated the same day after a second session (zoom-drag
+fix, paper-tone picker feature, PDF-replacement instructions in §15), for
+whoever picks this up next after Yossi finishes the final text edit of the
+book. This is everything I learned building and fixing the current site,
+so you don't have to rediscover it.
 
 **Read this whole document before touching anything.** The single biggest
 time-saver in here is the "stale pagination" section — it explains a bug
@@ -523,6 +525,176 @@ Nothing is a known-open UI bug as of this handoff. The only known,
 deliberate gap is the stale-pagination mismatch in §3, which is a
 content/pipeline issue, not a UI bug — it will resolve itself once you
 run the full pipeline against Yossi's final edited text.
+
+## 13. Zoom-in drag now pans, not flips (fixed later the same day)
+
+Reported bug: with zoom above 100%, dragging over the enlarged page flipped
+to the next/previous page instead of panning around the zoomed-in view —
+not how any normal zoomed image/PDF viewer behaves.
+
+**Root cause:** the pan-drag handler already existed (`#stage.zoomed` sets
+`cursor:grab`, and a `pointerdown`/`pointermove`/`pointerup` triple on
+`#stage` tracks `scrollLeft`/`scrollTop`), but it had
+`if (zoom <= 1 || e.target.closest('#book')) return;` — and a drag almost
+always *starts* on the visible page content, i.e. inside `#book`, so that
+exclusion meant panning essentially never engaged in real use. Worse, even
+without that check, StPageFlip attaches its own `mousedown`/`touchstart`
+listeners **directly on `#book`**, so our `#stage`-level handler could never
+reliably win an event-order race against the library's own page-turn drag
+logic anyway.
+
+**Fix:** `#stage.zoomed #book{pointer-events:none}`. While zoomed, the
+browser's own hit-testing routes every `pointerdown` straight to
+`#zoomwrap`/`#stage` — never to `#book` — so StPageFlip's drag listeners
+simply never see the pointer events at all. No event-order tricks, no
+`stopPropagation`, no library patching needed. Removed the now-obsolete
+`e.target.closest('#book')` exclusion from the pan handler since it's no
+longer reachable/needed.
+
+**Verified via Playwright:** a drag over the book at 125% zoom changes
+`stage.scrollLeft`/`scrollTop` and leaves the page counter unchanged; the
+identical drag gesture at 100% zoom still triggers a normal page flip — no
+regression to standard drag-to-flip.
+
+## 14. Paper-tone picker (white / cream / aged sepia)
+
+New feature, not a bug fix: lets the reader pick a warmer paper colour —
+better suited to a family memoir than stark white as the only option.
+
+**Why this needed an overlay, not a background-colour change:** every page
+is a flat scanned/rasterized JPEG (`images/<edition>/page_NNN.jpg`), not
+live-rendered text — there's no page "background" showing through to
+recolour. So the tint has to sit visually **on top of** the existing image.
+
+**Implementation (`mksite4.py`):**
+- `.page::after` — a `pointer-events:none` overlay per page, gated by
+  `mix-blend-mode:multiply` so a warm tint darkens the page toward
+  cream/sepia while leaving the scan's own black ink strokes essentially
+  untouched (multiply on black ≈ still black; multiply on white ≈ the tint
+  colour). Two variants defined, `cream` and `aged`, each a soft radial
+  vignette + flat tint colour; no attribute at all (or explicitly `white`)
+  renders nothing.
+- Gated by a `data-paper` **attribute on `<html>`**, deliberately *not* a
+  class on `#book` — `build()` calls `el.innerHTML=''` on `#book` every
+  edition switch / zoom-triggered resize / reload, which would wipe a class
+  living there. `<html>` persists across all of that, so every freshly
+  re-created `.page::after` just picks the current tone back up for free,
+  no extra JS needed per rebuild.
+- `#paperbtn` in the tools cluster cycles white → cream → aged on click.
+  Reuses the exact same "swap which of several identical SVGs is visible"
+  pattern as the dark-mode sun/moon toggle (`paintThemeIcon`) — three
+  identically-shaped little page-swatch icons (`#paper-white`,
+  `#paper-cream`, `#paper-aged`), only one shown at a time, so the icon
+  itself previews the current tone instead of needing a text label. Note:
+  the swatch fill colours are set via **ID selectors** (`#paper-white{fill:
+  #fff}` etc.) specifically because they need to beat the generic
+  `.ico svg{fill:none}` rule on specificity — a class-based override
+  wouldn't have been enough without `!important`.
+- Persisted via `localStorage['hb_paper']`, independent of the light/dark
+  **chrome** theme (`toggleTheme()`/`.dark`) — paper tone is a property of
+  the paper, not the app UI, so an aged-paper + dark-chrome combination (or
+  any combination) works with no conflict.
+
+**If you want to add a fourth tone (or change the two existing ones):** add
+another entry to the `PAPERS` array in the JS, another `<svg id="paper-X">`
+in the button markup, another `#paper-X{fill:...}` rule, and another
+`html[data-paper="X"] .page::after{...}` CSS block. That's the entire
+surface area — no other file needs touching.
+
+## 15. How to replace the source PDF / rebuild from a new manuscript
+
+This comes up whenever Yossi has a newly edited manuscript and wants the
+flipbook to reflect it. **The flipbook itself never touches a PDF** — it
+only ever consumes pre-rasterized JPEGs (`images/<edition>/page_NNN.jpg`).
+Replacing "the PDF" really means re-running the rasterize step against a
+new source PDF, for **both** editions, then regenerating `index.html`.
+
+**Important — verified 8 Aug 2026, don't trust `rasterize.py`'s hardcoded
+paths as-is, they're stale in three separate ways:**
+- Both `rasterize.py` and `rasterize_large.py` hardcode
+  `SRC = "...OneDrive - Microsoft\Documents\Microsoft Scout\Scratchpad\
+  HOLECH-BEDARKI\5_BUILD\rebuild\out\C_RGB_trim.pdf"` (or `L_RGB_trim.pdf`)
+  — that `OneDrive - Microsoft` root **no longer exists at all** (same
+  library-rename already noted for `mksite4.py`'s own path elsewhere in
+  this doc); the current root is plain `OneDrive` (no `- Microsoft`).
+- Even under the current root, there is **no `rebuild\out\` subfolder** and
+  **no `C_RGB_trim.pdf`/`L_RGB_trim.pdf`** — those were evidently an
+  intermediate CMYK→RGB-trimmed export step from an earlier point in the
+  project that no longer exists in the current pipeline.
+- **The actual current PDFs**, confirmed present as of this handoff, live
+  directly in `...\OneDrive\Documents\HOLECH-BEDARKI\5_BUILD\rebuild\`:
+  - `book_std.pdf` (regular edition, ~1.4MB, RGB/screen-weight — this is
+    the one to rasterize for the `regular` web edition)
+  - `book_large.pdf` (large-print edition, ~1.5MB — rasterize for `large`)
+  - `book_proof.pdf` (~3.9MB, an A4 proofreading copy — **not** a flipbook
+    source)
+  - `book_std_hires.pdf` / `book_large_hires.pdf` / `book_proof_hires.pdf`
+    (~13-14MB each — these are print-target, likely CMYK/high-DPI exports
+    for the physical print house, **not** what you want to rasterize for a
+    web flipbook; use the corresponding non-`_hires` file instead)
+
+**Steps, using a new final print-ready PDF pair (or the current
+`book_std.pdf`/`book_large.pdf` if that's genuinely what you want to
+re-rasterize):**
+
+1. Fix `SRC` in `ebook_src/rasterize.py` and `ebook_src/rasterize_large.py`
+   to point at your actual new/current PDF (e.g.
+   `...\OneDrive\Documents\HOLECH-BEDARKI\5_BUILD\rebuild\book_std.pdf`
+   for the regular edition), **not** the stale `out\..._RGB_trim.pdf` path
+   currently hardcoded there.
+2. Also fix `DST` in both scripts — they currently write to a staging
+   location (`rebuild\flip\pages` / `rebuild\flipL\pages`) using a
+   **different filename convention** (`pNNN.jpg`, e.g. `p001.jpg`) than
+   what the deployed site actually expects
+   (`images/<edition>/page_NNN.jpg`, e.g. `page_001.jpg`). Either change
+   `DST` to point directly at
+   `C:\Users\yohasson\.scout\hebrew-flipbook\images\regular` (and `\large`
+   for the large script) and change the output filename pattern from
+   `f"p{i+1:03d}.jpg"` to `f"page_{i+1:03d}.jpg"`, or rasterize to the
+   staging folder as-is and then copy+rename into the deployed `images/`
+   folders afterward — don't assume the site will pick up `pNNN.jpg` files,
+   it won't (`mksite4.py` just counts *any* `.jpg` file via `os.listdir`,
+   so stray `pNNN.jpg` files alongside real `page_NNN.jpg` ones would
+   silently inflate the page count with duplicates/junk).
+3. **Delete old `page_NNN.jpg` files from the deployed `images/regular`
+   and `images/large` folders first** if the new PDF has *fewer* pages
+   than whatever's currently there — `mksite4.py` just counts whatever
+   `.jpg` files it finds, so stale leftovers from a longer previous book
+   will silently show up as extra/wrong pages at the end of the new one.
+4. Run both: `python rasterize.py` then `python rasterize_large.py`.
+   Renders at 105 DPI, downsized to fit within 760×1100px, JPEG quality 76
+   — reasonable defaults for a screen flipbook; adjust in the script if a
+   sharper/smaller trade-off is wanted.
+5. Rebuild and redeploy:
+   ```powershell
+   cd "...\HOLECH-BEDARKI\5_BUILD\ebook_src"
+   python mksite4.py
+   cd C:\Users\yohasson\.scout\hebrew-flipbook
+   git add -A
+   git commit -m "Replace source PDF / regenerate pages"
+   git push origin main
+   ```
+   `mksite4.py` auto-detects the new page counts from the folders — no
+   manual page-count edits needed anywhere.
+6. Verify per §10 (hash/byte-compare the live deployed `index.html` against
+   local after ~75s, don't just trust the push).
+
+**If the new PDF's page count changed at all**, also sanity-check §7
+(edition-switch continuity is only a proportional approximation, and its
+accuracy depends on the two editions' page counts) and re-check whether
+`tocmap_std.json`/`tocmap_large.json` need regenerating if anything
+downstream depends on them (as of this handoff they already don't match
+the previously-deployed 68pp/84pp images — see §3 — so this drift is not
+new, just worth re-confirming after any page-count change).
+
+**If you're handing this task to a different AI agent/session** (e.g. one
+that has the new PDF loaded but no memory of this project), give it: the
+verified current PDF locations and names above, the exact
+`rasterize.py`/`rasterize_large.py` paths (with the three staleness issues
+called out explicitly so it doesn't propagate them), the deployed repo
+path and `page_NNN.jpg` naming convention, the "delete stale leftover files
+if the new book is shorter" warning, and the full rebuild+deploy+verify
+command sequence above.
 
 ---
 
