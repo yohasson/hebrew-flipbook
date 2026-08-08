@@ -10,6 +10,21 @@
 <meta property="og:description" content="סיפור חייו של יעקב קבלה"/>
 <meta property="og:type" content="book"/>
 <meta name="theme-color" content="#eeeeee"/>
+<!-- Sets the dark-mode class before any CSS paints, so a saved/system dark
+     preference never flashes light first. Kept tiny and synchronous
+     (blocking) on purpose - this must run before the stylesheet below
+     applies, not deferred to the bottom-of-body script like the rest of
+     the app's JS. -->
+<script>
+(function(){
+  try {
+    var saved = localStorage.getItem('hb_theme');
+    var dark = saved ? saved === 'dark'
+      : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    if (dark) document.documentElement.classList.add('dark');
+  } catch (e) {}
+})();
+</script>
 <!-- page-flip is vendored locally (vendor/page-flip.browser.js) rather than
      fetched from unpkg.com, since a corporate network/security policy blocking
      that CDN silently breaks the whole reader: St.PageFlip never initialises,
@@ -70,6 +85,13 @@
   }
   .seg button.on{background:#2f2f2f;color:#fff}
   .seg button:hover:not(.on){color:#1c1c1c;background:#e4e4e4}
+  /* Font-size icons for the edition toggle: the Hebrew letter aleph at two
+     sizes reads instantly as "regular vs. large text" without needing the
+     Hebrew words spelled out - the same "Aa" convention reading apps use,
+     just in-script for a book that's entirely in Hebrew. */
+  .seg .szico{font-weight:600;line-height:1;display:inline-block}
+  .seg .szico.sm{font-size:.72rem}
+  .seg .szico.lg{font-size:1.22rem}
 
   /* ---------------- stage ---------------- */
   #stage{
@@ -219,6 +241,43 @@
   #pbar i{display:block;height:100%;width:0;border-radius:2px;
           background:linear-gradient(90deg,#9a9a9a,#4a4a4a);transition:width .25s}
 
+  /* ---------------- dark mode ----------------
+     Only the chrome (backdrop, floating cards, bottom bar, loader) switches
+     to a dark palette - the book pages themselves (JPEGs of a real printed
+     page) stay their natural white/paper colour, same as a real paper book
+     doesn't change colour when the room lights dim. Inverting the page
+     images would also wreck the ~22 photos in this memoir; leaving them
+     alone is both simpler and more correct. Toggled via .dark on <html>,
+     see toggleTheme()/applyTheme() in the script below. */
+  html.dark body{
+    background:linear-gradient(143deg,#2b2b2b 0%,#242424 35%,#1c1c1c 70%,#151515 100%);
+    color:#d8d8d8;
+  }
+  html.dark .card{background:rgba(32,32,32,.85)}
+  html.dark #titlecard h1{color:#eee}
+  html.dark #titlecard .sub{color:#9a9a9a}
+  html.dark .ico{color:#c9c9c9}
+  html.dark .ico:hover{background:#3a3a3a;color:#fff}
+  html.dark .ico:active{background:#454545}
+  html.dark #zlabel{color:#9a9a9a}
+  html.dark .seg{background:#3a3a3a}
+  html.dark .seg button{color:#aaa}
+  html.dark .seg button.on{background:#eee;color:#1c1c1c}
+  html.dark .seg button:hover:not(.on){color:#eee;background:#484848}
+  html.dark .edgebtn{background:rgba(40,40,40,.85);color:#d8d8d8}
+  html.dark .edgebtn:hover{background:#333}
+  html.dark .edgebtn:active{background:#404040}
+  html.dark #nav{background:#242424;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+  html.dark #counter{color:#bbb}
+  html.dark #scrub::-webkit-slider-runnable-track{background:#4a4a4a}
+  html.dark #scrub::-moz-range-track{background:#4a4a4a}
+  html.dark #scrub::-webkit-slider-thumb{background:#d8d8d8;box-shadow:0 1px 3px rgba(0,0,0,.5)}
+  html.dark #scrub::-moz-range-thumb{background:#d8d8d8;box-shadow:0 1px 3px rgba(0,0,0,.5)}
+  html.dark #load{background:linear-gradient(135deg,#242424,#161616)}
+  html.dark #load p{color:#9a9a9a}
+  html.dark #pbar{background:rgba(255,255,255,.12)}
+  html.dark #pbar i{background:linear-gradient(90deg,#666,#ccc)}
+
   @media (max-width:760px){
     #titlecard{padding:.45rem .7rem;max-width:56vw}
     #titlecard h1{font-size:.86rem}
@@ -247,8 +306,8 @@
   <h1>הולך בדרכי</h1>
   <span class="sub">סיפור חיים — יעקב קבלה</span>
   <div class="seg">
-    <button id="ed-regular" class="on" onclick="setEdition('regular')">רגילה</button>
-    <button id="ed-large" onclick="setEdition('large')">אותיות גדולות</button>
+    <button id="ed-regular" class="on" onclick="setEdition('regular')" title="גופן רגיל" aria-label="גופן רגיל"><span class="szico sm">א</span></button>
+    <button id="ed-large" onclick="setEdition('large')" title="גופן גדול" aria-label="גופן גדול"><span class="szico lg">א</span></button>
   </div>
 </div>
 
@@ -265,6 +324,10 @@
   </button>
   <button class="ico" id="sndbtn" onclick="toggleSound()" title="צליל דפדוף" aria-label="צליל דפדוף">
     <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path id="wv1" d="M16.5 8.8a4.5 4.5 0 0 1 0 6.4"/><path id="wv2" d="M19 6.3a8 8 0 0 1 0 11.4"/><path id="mute" d="M17 9.5l5 5m0-5l-5 5" style="display:none"/></svg>
+  </button>
+  <button class="ico" id="themebtn" onclick="toggleTheme()" title="מצב כהה" aria-label="מצב כהה">
+    <svg viewBox="0 0 24 24" id="theme-sun"><circle cx="12" cy="12" r="4.3"/><path d="M12 3v2.4M12 18.6V21M4.6 4.6l1.7 1.7M17.7 17.7l1.7 1.7M3 12h2.4M18.6 12H21M4.6 19.4l1.7-1.7M17.7 6.3l1.7-1.7"/></svg>
+    <svg viewBox="0 0 24 24" id="theme-moon" style="display:none"><path d="M20.4 14.7A8.6 8.6 0 1 1 9.3 3.6a7 7 0 0 0 11.1 11.1z"/></svg>
   </button>
 </div>
 
@@ -346,6 +409,26 @@ function toggleSound() {
   try { localStorage.setItem('hb_snd', sndOn ? '1' : '0'); } catch (e) {}
   if (sndOn) playFlip();
 }
+
+/* ---------------- theme ----------------
+   The actual .dark class was already set (or not) by the tiny blocking
+   script in <head>, before this deferred script even runs, to avoid a
+   flash of the wrong theme. This just keeps the icon/aria-label in sync
+   with whatever state that early script left us in, and handles clicks. */
+function paintThemeIcon(dark) {
+  document.getElementById('theme-sun').style.display = dark ? 'none' : '';
+  document.getElementById('theme-moon').style.display = dark ? '' : 'none';
+  var btn = document.getElementById('themebtn');
+  var label = dark ? 'מצב בהיר' : 'מצב כהה';
+  btn.title = label; btn.setAttribute('aria-label', label);
+}
+function toggleTheme() {
+  var dark = !document.documentElement.classList.contains('dark');
+  document.documentElement.classList.toggle('dark', dark);
+  paintThemeIcon(dark);
+  try { localStorage.setItem('hb_theme', dark ? 'dark' : 'light'); } catch (e) {}
+}
+paintThemeIcon(document.documentElement.classList.contains('dark'));
 
 function srcs(ed) {
   var n = EDITIONS[ed].pages, out = [];
