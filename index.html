@@ -184,6 +184,7 @@
     position:absolute;inset:0 0 64px 0;z-index:1;overflow:hidden;
     display:flex;align-items:center;justify-content:center;padding:26px 6px;
     perspective:2600px;perspective-origin:50% 45%;
+    touch-action:none;
   }
   /* Clean mode hides #bottom entirely, so #stage no longer needs to reserve
      64px of height for it - without this, the book would stay vertically
@@ -217,6 +218,7 @@
     overflow:auto;cursor:grab;
     scrollbar-width:none;
     -ms-overflow-style:none;
+    touch-action:none;
   }
   #stage.zoomed::-webkit-scrollbar{width:0;height:0;display:none}
   #stage.zoomed:active{cursor:grabbing}
@@ -1072,12 +1074,12 @@ function zoomBy(dir) {
   idx = Math.max(0, Math.min(ZOOMS.length - 1, idx + dir));
   setZoom(ZOOMS[idx]);
 }
-function setZoom(z) {
+function setZoom(z, opts) {
   zoom = z;
   wrap.style.transform = 'scale(' + z + ')';
   document.getElementById('zlabel').textContent = Math.round(z * 100) + '%';
   stage.classList.toggle('zoomed', z > 1);
-  if (z > 1) setTimeout(centreScroll, 260);
+  if (z > 1 && !(opts && opts.keepScroll)) setTimeout(centreScroll, 260);
   layout();   // re-evaluate edge-arrow visibility now that zoom has changed
 }
 /* In RTL, scrollLeft runs from 0 at the right edge to a negative minimum. */
@@ -1090,13 +1092,70 @@ function centreScroll() {
 }
 (function () {
   var down = false, sx = 0, sy = 0, sl = 0, st = 0;
+  var pinch = null;
+  function clampZoom(z) {
+    return Math.max(1, Math.min(ZOOMS[ZOOMS.length - 1], z));
+  }
+  function scrollX() {
+    return getComputedStyle(stage).direction === 'rtl' ? -stage.scrollLeft : stage.scrollLeft;
+  }
+  function setScrollX(x) {
+    stage.scrollLeft = getComputedStyle(stage).direction === 'rtl' ? -x : x;
+  }
+  function touchPair(e) {
+    if (e.touches.length < 2) return null;
+    var a = e.touches[0], b = e.touches[1];
+    var dx = b.clientX - a.clientX, dy = b.clientY - a.clientY;
+    return {
+      dist: Math.hypot(dx, dy),
+      x: (a.clientX + b.clientX) / 2,
+      y: (a.clientY + b.clientY) / 2
+    };
+  }
+  stage.addEventListener('touchstart', function (e) {
+    var pair = touchPair(e);
+    if (!pair) return;
+    e.preventDefault();
+    e.stopPropagation();
+    down = false;
+    pinch = {
+      dist: pair.dist,
+      x: pair.x,
+      y: pair.y,
+      zoom: zoom,
+      sx: scrollX(),
+      sy: stage.scrollTop
+    };
+  }, { passive: false, capture: true });
+  stage.addEventListener('touchmove', function (e) {
+    if (!pinch || e.touches.length < 2) return;
+    e.preventDefault();
+    e.stopPropagation();
+    var pair = touchPair(e);
+    if (!pair || pinch.dist <= 0) return;
+    var nextZoom = clampZoom(pinch.zoom * (pair.dist / pinch.dist));
+    var ratio = nextZoom / pinch.zoom;
+    setZoom(nextZoom, { keepScroll: true });
+    var targetX = (pinch.sx + pinch.x) * ratio - pair.x;
+    var targetY = (pinch.sy + pinch.y) * ratio - pair.y;
+    setScrollX(targetX);
+    stage.scrollTop = targetY;
+    requestAnimationFrame(function () {
+      setScrollX(targetX);
+      stage.scrollTop = targetY;
+    });
+  }, { passive: false, capture: true });
+  stage.addEventListener('touchend', function (e) {
+    if (e.touches.length < 2) pinch = null;
+  });
+  stage.addEventListener('touchcancel', function () { pinch = null; });
   stage.addEventListener('pointerdown', function (e) {
     /* #book has pointer-events:none while zoomed (see CSS), so a pointerdown
        that reaches here while zoomed is always meant to pan, never a click
        that should reach StPageFlip. No target.closest('#book') exclusion
        needed (or wanted) any more - that check used to make every drag
        starting on the actual page content skip panning entirely. */
-    if (zoom <= 1) return;
+    if (zoom <= 1 || pinch) return;
     down = true; sx = e.clientX; sy = e.clientY;
     sl = stage.scrollLeft; st = stage.scrollTop;
   });
