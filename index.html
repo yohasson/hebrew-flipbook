@@ -605,7 +605,7 @@ var SOUNDS = {"sm": "data:audio/wav;base64,UklGRqRUAABXQVZFZm10IBAAAAABAAEAAH0AA
 var TOC = {"regular": [["מבוא", 13], ["ילדות", 15], ["אחי ואחיותיי", 18], ["סבי וסבתי", 19], ["דודי יוסף", 24], ["כפר הולדתי לאמונשה", 26], ["הקהילה היהודית", 30], ["הלימודים ב- סלה", 32], ["חברים", 33], ["גילויי אנטישמיות", 35], ["העלייה לארץ ישראל", 37], ["ההגעה ארצה", 41], ["המעברה בכפר יבנה", 44], ["העבודה הראשונה בארץ", 46], ["צבא", 49], ["תחילת החלוציות", 51], ["מרים", 55], ["מה עוד אני יכול לפתח?", 63], ["אמונתי", 76], ["משפחתי", 79], ["סוף דבר", 83], ["מתכון לעוגת ספרה - מרים", 86]], "large": [["מבוא", 13], ["ילדות", 15], ["אחי ואחיותיי", 19], ["סבי וסבתי", 20], ["דודי יוסף", 25], ["כפר הולדתי לאמונשה", 27], ["הקהילה היהודית", 32], ["הלימודים ב- סלה", 34], ["חברים", 36], ["גילויי אנטישמיות", 38], ["העלייה לארץ ישראל", 40], ["ההגעה ארצה", 44], ["המעברה בכפר יבנה", 47], ["העבודה הראשונה בארץ", 49], ["צבא", 52], ["תחילת החלוציות", 55], ["מרים", 59], ["מה עוד אני יכול לפתח?", 67], ["אמונתי", 82], ["משפחתי", 85], ["סוף דבר", 90], ["מתכון לעוגת ספרה - מרים", 93]]};
 var EDITION_MAP = {"regular": {"large": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 19, 20, 21, 21, 23, 24, 25, 26, 27, 28, 30, 31, 32, 33, 34, 36, 37, 38, 39, 40, 41, 43, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 55, 56, 58, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 71, 72, 73, 74, 76, 77, 78, 79, 79, 81, 82, 83, 84, 85, 86, 87, 88, 90, 91, 92, 93, 87]}, "large": {"regular": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 27, 28, 29, 30, 31, 32, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 66, 67, 68, 69, 70, 70, 71, 72, 74, 75, 75, 76, 77, 78, 79, 80, 81, 82, 82, 83, 84, 85, 86, 87]}};
 var edition = 'regular';
-var flip = null, total = 0, zoom = 1, PW = 0, portrait = false;
+var flip = null, total = 0, zoom = 1, panX = 0, panY = 0, PW = 0, portrait = false;
 var stage = document.getElementById('stage');
 var wrap = document.getElementById('zoomwrap');
 
@@ -1074,12 +1074,16 @@ function zoomBy(dir) {
   idx = Math.max(0, Math.min(ZOOMS.length - 1, idx + dir));
   setZoom(ZOOMS[idx]);
 }
+function applyZoomTransform() {
+  wrap.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + zoom + ')';
+}
 function setZoom(z, opts) {
   zoom = z;
-  wrap.style.transform = 'scale(' + z + ')';
+  if (z <= 1) { zoom = 1; panX = 0; panY = 0; }
+  else if (!(opts && opts.keepPan)) { panX = 0; panY = 0; }
+  applyZoomTransform();
   document.getElementById('zlabel').textContent = Math.round(z * 100) + '%';
-  stage.classList.toggle('zoomed', z > 1);
-  if (z > 1 && !(opts && opts.keepScroll)) setTimeout(centreScroll, 260);
+  stage.classList.toggle('zoomed', zoom > 1);
   layout();   // re-evaluate edge-arrow visibility now that zoom has changed
 }
 /* In RTL, scrollLeft runs from 0 at the right edge to a negative minimum. */
@@ -1091,16 +1095,10 @@ function centreScroll() {
   stage.scrollLeft = rtl ? -(overX / 2) : (overX / 2);
 }
 (function () {
-  var down = false, sx = 0, sy = 0, sl = 0, st = 0;
+  var down = false, sx = 0, sy = 0, startPanX = 0, startPanY = 0;
   var pinch = null;
   function clampZoom(z) {
     return Math.max(1, Math.min(ZOOMS[ZOOMS.length - 1], z));
-  }
-  function scrollX() {
-    return getComputedStyle(stage).direction === 'rtl' ? -stage.scrollLeft : stage.scrollLeft;
-  }
-  function setScrollX(x) {
-    stage.scrollLeft = getComputedStyle(stage).direction === 'rtl' ? -x : x;
   }
   function touchPair(e) {
     if (e.touches.length < 2) return null;
@@ -1123,8 +1121,8 @@ function centreScroll() {
       x: pair.x,
       y: pair.y,
       zoom: zoom,
-      sx: scrollX(),
-      sy: stage.scrollTop
+      panX: panX,
+      panY: panY
     };
   }, { passive: false, capture: true });
   stage.addEventListener('touchmove', function (e) {
@@ -1134,16 +1132,12 @@ function centreScroll() {
     var pair = touchPair(e);
     if (!pair || pinch.dist <= 0) return;
     var nextZoom = clampZoom(pinch.zoom * (pair.dist / pinch.dist));
+    var r = stage.getBoundingClientRect();
+    var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
     var ratio = nextZoom / pinch.zoom;
-    setZoom(nextZoom, { keepScroll: true });
-    var targetX = (pinch.sx + pinch.x) * ratio - pair.x;
-    var targetY = (pinch.sy + pinch.y) * ratio - pair.y;
-    setScrollX(targetX);
-    stage.scrollTop = targetY;
-    requestAnimationFrame(function () {
-      setScrollX(targetX);
-      stage.scrollTop = targetY;
-    });
+    panX = pair.x - cx - ratio * (pinch.x - cx - pinch.panX);
+    panY = pair.y - cy - ratio * (pinch.y - cy - pinch.panY);
+    setZoom(nextZoom, { keepPan: true });
   }, { passive: false, capture: true });
   stage.addEventListener('touchend', function (e) {
     if (e.touches.length < 2) pinch = null;
@@ -1157,12 +1151,13 @@ function centreScroll() {
        starting on the actual page content skip panning entirely. */
     if (zoom <= 1 || pinch) return;
     down = true; sx = e.clientX; sy = e.clientY;
-    sl = stage.scrollLeft; st = stage.scrollTop;
+    startPanX = panX; startPanY = panY;
   });
   window.addEventListener('pointermove', function (e) {
     if (!down) return;
-    stage.scrollLeft = sl - (e.clientX - sx);
-    stage.scrollTop = st - (e.clientY - sy);
+    panX = startPanX + (e.clientX - sx);
+    panY = startPanY + (e.clientY - sy);
+    applyZoomTransform();
   });
   window.addEventListener('pointerup', function () { down = false; });
 })();
