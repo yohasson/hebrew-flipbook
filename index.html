@@ -499,12 +499,18 @@ function layout() {
   pb.classList.toggle('hide', !hasPrev); pt.classList.toggle('hide', !hasPrev);
 
   /* Edge arrows sit OUTSIDE the page, like the reference, with a fixed gap -
-     not pinned to the viewport edge, so they track the book at every size. */
-  var EGAP = 14, EB = 38;
+     not pinned to the viewport edge, so they track the book at every size.
+     On narrow/portrait viewports there often isn't 14+38px of margin outside
+     the single page at all; without clamping, edgeNext lands at a negative
+     x and is permanently off-screen and unusable (confirmed at 390px wide:
+     x=-52). Clamp both buttons to stay on screen, falling back to overlapping
+     the page edge slightly rather than disappearing. */
+  var EGAP = 14, EB = 38, EPAD = 4;
   var edgeNext = document.getElementById('edgeNext'), edgePrev = document.getElementById('edgePrev');
-  edgeNext.style.left = (vx - EGAP - EB) + 'px';
+  var vpW = stage.clientWidth;
+  edgeNext.style.left = Math.max(EPAD, vx - EGAP - EB) + 'px';
   edgeNext.style.top = (by + bh / 2) + 'px';
-  edgePrev.style.left = (vx + vw + EGAP) + 'px';
+  edgePrev.style.left = Math.min(vx + vw + EGAP, vpW - EB - EPAD) + 'px';
   edgePrev.style.top = (by + bh / 2) + 'px';
   edgeNext.classList.toggle('hide', !hasNext);
   edgePrev.classList.toggle('hide', !hasPrev);
@@ -628,15 +634,43 @@ stage.addEventListener('wheel', function (e) {
   zoomBy(e.deltaY < 0 ? 1 : -1);
 }, { passive: false });
 
-/* Corner peels reveal on proximity hover, like the reference. */
-['peelNextB', 'peelNextT', 'peelPrevB', 'peelPrevT'].forEach(function (id) {
-  var el = document.getElementById(id);
-  el.addEventListener('pointerenter', function () { el.classList.add('show'); });
-  el.addEventListener('pointerleave', function () { el.classList.remove('show'); });
+/* Corner peels reveal by continuous proximity to the mouse, not by hover on
+   the small 34px box itself - relying only on pointerenter/pointerleave on
+   an element that small can desync if the cursor moves quickly (leave fires
+   late or not at all), leaving the wrong corner stuck visible. Recomputing
+   from scratch on every mousemove is self-correcting: whichever corner is
+   nearest right now is the one shown, full stop. */
+var PEEL_RADIUS = 90;
+stage.addEventListener('pointermove', function (e) {
+  var ids = ['peelNextB', 'peelNextT', 'peelPrevB', 'peelPrevT'];
+  var nearest = null, nearestD = PEEL_RADIUS;
+  for (var k = 0; k < ids.length; k++) {
+    var el = document.getElementById(ids[k]);
+    if (el.classList.contains('hide')) continue;
+    var r = el.getBoundingClientRect();
+    var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    var d = Math.hypot(e.clientX - cx, e.clientY - cy);
+    if (d < nearestD) { nearestD = d; nearest = ids[k]; }
+  }
+  for (var j = 0; j < ids.length; j++) {
+    document.getElementById(ids[j]).classList.toggle('show', ids[j] === nearest);
+  }
+});
+stage.addEventListener('pointerleave', function () {
+  ['peelNextB', 'peelNextT', 'peelPrevB', 'peelPrevT'].forEach(function (id) {
+    document.getElementById(id).classList.remove('show');
+  });
 });
 
 function setEdition(ed) {
   if (ed === edition) return;
+  /* Both editions reflow the exact same 750 paragraphs at a different font
+     size, so there is no saved paragraph->page ground truth to switch on
+     exactly. Carrying the reader's fractional position through the page-
+     count ratio keeps them in the same neighbourhood of the book instead of
+     bouncing back to the cover - close, if not always the identical
+     paragraph, and never a regression from a hard reset. */
+  var oldTotal = total, oldPage = flip ? flip.getCurrentPageIndex() + 1 : 1;
   edition = ed;
   document.getElementById('ed-regular').classList.toggle('on', ed === 'regular');
   document.getElementById('ed-large').classList.toggle('on', ed === 'large');
@@ -644,7 +678,16 @@ function setEdition(ed) {
   l.classList.remove('done');
   document.querySelector('#pbar i').style.width = '0';
   warm(srcs(ed), 4, function () {
-    build(1); setZoom(1);
+    var newTotal = EDITIONS[ed].pages;
+    /* fraction through the book, 0-indexed, applied identically to the new
+       edition's page count. Using oldPage instead of (oldPage-1) here would
+       shift the cover (page 1) to page 2 - the fraction must be 0 at the
+       very first page in both editions. */
+    var target = oldTotal > 1
+      ? Math.round((oldPage - 1) * (newTotal - 1) / (oldTotal - 1)) + 1
+      : 1;
+    target = Math.max(1, Math.min(newTotal, target));
+    build(target); setZoom(1);
     l.classList.add('done');
   });
   try { localStorage.setItem('hb_ed', ed); } catch (e) {}
