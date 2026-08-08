@@ -213,7 +213,12 @@
      the full height on its own, see the rule above. */
   html.fs:not(.clean) #stage{inset:0 0 90px 0}
   html.fs:not(.clean) #bottom{bottom:26px}
-  #stage.zoomed{overflow:auto;cursor:grab}
+  #stage.zoomed{
+    overflow:auto;cursor:grab;
+    scrollbar-width:none;
+    -ms-overflow-style:none;
+  }
+  #stage.zoomed::-webkit-scrollbar{width:0;height:0;display:none}
   #stage.zoomed:active{cursor:grabbing}
   /* While zoomed in (>100%), a drag anywhere over the book must PAN the
      enlarged viewport - like any normal zoomed image/PDF viewer - not
