@@ -512,8 +512,16 @@ function layout() {
   edgeNext.style.top = (by + bh / 2) + 'px';
   edgePrev.style.left = Math.min(vx + vw + EGAP, vpW - EB - EPAD) + 'px';
   edgePrev.style.top = (by + bh / 2) + 'px';
-  edgeNext.classList.toggle('hide', !hasNext);
-  edgePrev.classList.toggle('hide', !hasPrev);
+  /* These buttons live inside #zoomwrap, so their left/top above is in that
+     ancestor's pre-scale coordinate space; the clamp against vpW is only
+     valid at zoom 1. Once #zoomwrap is scaled, the same clamped value can
+     still land off-screen after magnification (confirmed at zoom 1.5:
+     edgeNext computed x=-36). The bottom bar's prev/next already live
+     outside #zoomwrap and stay reachable at any zoom, so simply hide these
+     floating buttons while zoomed rather than chase scale-compensated math
+     for a control whose whole purpose is being reliably clickable. */
+  edgeNext.classList.toggle('hide', !hasNext || zoom !== 1);
+  edgePrev.classList.toggle('hide', !hasPrev || zoom !== 1);
 }
 
 function updateCounter() {
@@ -605,6 +613,7 @@ function setZoom(z) {
   document.getElementById('zlabel').textContent = Math.round(z * 100) + '%';
   stage.classList.toggle('zoomed', z > 1);
   if (z > 1) setTimeout(centreScroll, 260);
+  layout();   // re-evaluate edge-arrow visibility now that zoom has changed
 }
 /* In RTL, scrollLeft runs from 0 at the right edge to a negative minimum. */
 function centreScroll() {
