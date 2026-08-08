@@ -294,20 +294,53 @@ this area, re-run equivalent tests, not just a visual check:
      corner from what it computed. This was invisible to every prior
      test because all of that testing only inspected *our own* `.peel`
      divs (which were behaving correctly the whole time) — never
-     StPageFlip's own internal DOM (`stf__outerShadow` etc.). **Fix:**
-     `showPageCorners: false` in the `new St.PageFlip(...)` config,
-     since we already have our own custom peel-hint UI and don't need
-     StPageFlip's. Verified by checking StPageFlip's internal
-     shadow/fold elements stay inert (0×0, no active class) at all four
-     corners under slow, realistic mouse approaches, and confirmed fixed
-     live by Yossi after deploy.
+     StPageFlip's own internal DOM (`stf__outerShadow` etc.). **Fix
+     applied at the time:** `showPageCorners: false` in the
+     `new St.PageFlip(...)` config, since we already had our own custom
+     peel-hint UI and didn't (at the time) know the *real* root cause yet.
+     Verified by checking StPageFlip's internal shadow/fold elements stay
+     inert (0×0, no active class) at all four corners under slow,
+     realistic mouse approaches, and confirmed fixed live by Yossi after
+     deploy.
+
+     **This was NOT the end of the story — see step 4 below and §12.**
+     `showPageCorners: false` only hid the *symptom* (StPageFlip's own
+     animated hover fold), it didn't fix the actual bug, which also
+     mirrored the real drag-to-flip direction, not just the passive hover.
+     Yossi later reported the real drag direction was ALSO crossed
+     ("i try to lift the left page but actually the right page is being
+     lifted") — that surfaced the true root cause and the real fix.
+  4. **The TRUE root cause (found later, after re-opening this "fixed"
+     bug):** StPageFlip's `getMousePos()` (in
+     `vendor/page-flip.browser.js`) converts real `clientX/clientY` into
+     local page coordinates with `x: t - i.left` — no awareness of the
+     `scaleX(-1)` mirror at all. This single function feeds **every**
+     real pointer interaction: the passive hover preview AND the actual
+     drag/flip-direction decision. Patched in place: `x: r.width +
+     2*r.left - (t - i.left)`. Confirmed via explicit A/B testing
+     (temporarily reverting the patch reproduced the exact reported bug —
+     dragging the bottom-left corner lifted the far-right page — then
+     re-applying fixed it) across `flipNext()/flipPrev()` (unaffected,
+     they use synthetic coordinates that bypass this function), real
+     mouse drag-to-flip from either page, and keyboard arrows. With the
+     coordinates now correct at the source, `showPageCorners` was safely
+     switched back to `true` — StPageFlip's own animated hover-lift now
+     works correctly. This immediately surfaced one more small issue: our
+     own `.peel` div (kept around from step 1-3 as a hover substitute) now
+     rendered *at the same time* as StPageFlip's real fold, clashing
+     visually. Fixed by forcing `.peel{opacity:0!important}` — see §12
+     for the full final-state writeup.
 
   **Lesson if you ever touch corner/hover behaviour again:** always
   check whether the library itself has an overlapping built-in feature
   before assuming a bug is in your own code — especially with any
   library wrapped in a CSS mirror/flip trick like this RTL setup. Grep
   the vendored source (`vendor/page-flip.browser.js` /
-  `pageflow.js`) for the feature name, don't just trust the docs.
+  `pageflow.js`) for the feature name, don't just trust the docs. And once
+  you find the *real* shared root cause of what looked like separate
+  bugs, go back and clean up any earlier workarounds rather than leaving
+  both the workaround and the real fix active at once — that's exactly
+  what caused the `.peel`-vs-native-fold clash here.
 - **Edge arrows off-screen on mobile:** positioning arrows *outside* the
   page assumed 14px gap + 38px button width of margin always exists.
   On a 390px-wide phone viewport in portrait/single-page mode, there
@@ -398,13 +431,54 @@ C:\Users\yohasson\.scout\hebrew-flipbook\      the deployed site's git repo
 
 ---
 
-## 12. Final verification status (8 Aug 2026)
+## 12. Final verification status (8 Aug 2026, updated after a second round of fixes)
 
 Before handing this off, every UI bug reported by Yossi across this whole
-session was re-tested live and confirmed fixed on the deployed site:
+session was re-tested live and confirmed fixed on the deployed site.
+**Note:** the corner-peel/page-turn direction bug went through *three*
+distinct fixes across the session, not one — §8 documents the full history,
+but the short version if you only read this section:
 
-- ✅ Corner-peel crossed-side bug — fixed (§8, `showPageCorners: false`),
-  confirmed live by Yossi.
+- ✅ **Corner-peel/page-turn direction — the REAL final fix.** The
+  `showPageCorners: false` workaround mentioned earlier in this doc (and in
+  an earlier commit message) was **superseded** — it only papered over
+  StPageFlip's own animated corner-hover, it never touched the actual bug,
+  which also mirrored the real **drag-to-flip direction** (not just the
+  passive hover hint). The real root cause: StPageFlip's own
+  `getMousePos()` (in `vendor/page-flip.browser.js`) converts real
+  `clientX/clientY` into local page coordinates with a naive
+  `x - rect.left`, which has no idea `#book` is rendered with
+  `transform:scaleX(-1)` for RTL. That one function feeds **both** the
+  passive hover preview AND the real drag/flip-direction logic, so both
+  were mirrored wrong. Patched in place (search for the comment above
+  `getMousePos` in `vendor/page-flip.browser.js` and in the reference copy
+  `ebook_src/pageflip.js`) to un-mirror real pointer coordinates:
+  `x: r.width + 2*r.left - (t - i.left)` instead of `x: t - i.left`.
+  Verified this is the correct fix, not another false lead, by explicit
+  A/B testing (temporarily reverting it and confirming the bug reproduces
+  exactly as reported, then re-applying and confirming it's gone) across
+  four different interaction paths: `flipNext()/flipPrev()` (button clicks,
+  unaffected either way since they build synthetic coordinates that never
+  go through `getMousePos`), real mouse drag-to-flip from either page,
+  and keyboard arrows. `showPageCorners` was then safely **re-enabled**
+  (`true`) since the coordinate bug it was hiding is now actually fixed —
+  StPageFlip's own animated hover-lift now works correctly and looks like
+  a real page-corner lift.
+- ✅ **Corner-hover visual clash (found immediately after re-enabling
+  `showPageCorners`).** With StPageFlip's own animated fold now correctly
+  enabled, our own custom `.peel` div (a small static 34px triangle+arrow
+  icon, built earlier in the session as a *substitute* for the
+  corner-hover hint before the real bug was understood) started rendering
+  **at the same time and same spot**, visually clashing with StPageFlip's
+  larger, dynamically-sized native fold — a small icon awkwardly sitting
+  under/inside the real animated lift. Fixed by forcing `.peel{opacity:0
+  !important}` — the div (and its onclick-to-flip handler) still exists in
+  the DOM but never renders, so StPageFlip's own animation is now the
+  single, clean hint. If you ever want the custom arrow icon back, it
+  would need to be re-integrated *into* StPageFlip's own fold render
+  (matching its dynamic size as the cursor moves through the ~200px corner
+  zone) rather than as an independent overlay — non-trivial, probably not
+  worth it now that the native animation alone looks right.
 - ✅ Edge-of-book prev/next arrows — correct RTL side, correct icon,
   positioned outside the page, zoom/mobile-safe.
 - ✅ Bottom bar/scrubber missing in windowed (non-fullscreen) mode — Yossi
@@ -420,10 +494,30 @@ session was re-tested live and confirmed fixed on the deployed site:
   (z-index/stacking) or a slow/incomplete initial paint, not missing
   logic. Worth a hard-refresh + a few seconds' wait before concluding
   it's broken again.
+- ✅ Fullscreen button — works correctly in a real standalone browser
+  window. It only appeared broken once, inside Microsoft Scout's own
+  embedded preview pane, which silently blocks the Fullscreen API from
+  taking visual effect even though the JS call succeeds without error —
+  not a site bug, nothing to fix.
 - ✅ Edition-switch (regular ↔ large font) keeps the reader on
   approximately the same paragraph when switching — see §7 for the exact
   (non-approximate) upgrade path if you want to do it properly during
   the rebuild.
+
+**A meta-lesson from this whole debugging arc, worth internalizing before
+you touch this code again:** the same underlying bug (StPageFlip's
+un-mirrored real pointer coordinates in RTL mode) manifested as what
+looked like three *separate* problems reported at different times — a
+crossed hover corner, then (after a partial fix) a crossed real
+drag-flip direction, then (after fixing that for real) a cosmetic
+double-render clash from an old workaround that was never cleaned up.
+Each looked like a different bug from the outside. When you're deep in
+an RTL-mirrored library integration like this one, always ask "is this
+the same root cause wearing a different hat?" before assuming a fresh
+investigation is needed from scratch — and clean up workarounds
+(`showPageCorners: false`, the `.peel` substitute icon) once the real
+underlying fix makes them unnecessary, rather than leaving both the
+old workaround and the new real fix active at once.
 
 Nothing is a known-open UI bug as of this handoff. The only known,
 deliberate gap is the stale-pagination mismatch in §3, which is a
