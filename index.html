@@ -137,7 +137,7 @@
   /* ---------------- stage ---------------- */
   #stage{
     position:absolute;inset:0 0 64px 0;z-index:1;overflow:hidden;
-    display:flex;align-items:center;justify-content:center;padding:6px;
+    display:flex;align-items:center;justify-content:center;padding:26px 6px;
     perspective:2600px;perspective-origin:50% 45%;
   }
   /* Clean mode hides #bottom entirely, so #stage no longer needs to reserve
@@ -147,8 +147,27 @@
      truly centred in the full viewport. build()/layout() also get
      re-triggered on toggle (see toggleClean() in the JS) since page sizing
      itself is computed from #stage's clientHeight at build time, not just
-     recomputed live by this CSS alone. */
-  html.clean #stage{inset:0}
+     recomputed live by this CSS alone. !important guarantees clean mode's
+     full-bleed reclaim always wins even if a future rule (like the
+     fullscreen one directly below) also targets #stage's inset. */
+  html.clean #stage{inset:0!important}
+  /* True browser/OS Fullscreen (via the toggleFullscreen() button, the "f"
+     key, or F11) removes all browser chrome, so any top/bottom imbalance
+     in #stage's own margins becomes far more visible than in a normal
+     windowed tab. #bottom sits flush at bottom:0 by default, giving it
+     effectively zero margin from the true screen edge, while the book's
+     own top margin is #stage's 26px padding - noticeably asymmetric once
+     fullscreen removes the browser's own OS-level chrome that used to
+     visually absorb that gap. The "html.fs" class (toggled by the
+     fullscreenchange listener in the JS, not relying on a bare :fullscreen
+     selector alone for wider cross-browser reliability) lifts #bottom off
+     the true edge by the same 26px the book already has up top, and grows
+     #stage's own reserved bottom inset to match (64px bar height + 26px
+     gap), keeping the book itself symmetric top-to-bottom. Only applies
+     when NOT in clean mode - clean mode already hides #bottom and reclaims
+     the full height on its own, see the rule above. */
+  html.fs:not(.clean) #stage{inset:0 0 90px 0}
+  html.fs:not(.clean) #bottom{bottom:26px}
   #stage.zoomed{overflow:auto;cursor:grab}
   #stage.zoomed:active{cursor:grabbing}
   /* While zoomed in (>100%), a drag anywhere over the book must PAN the
@@ -626,7 +645,15 @@ function build(startPage) {
   var list = srcs(edition);
   total = list.length;
 
-  var availW = stage.clientWidth - 12, availH = stage.clientHeight - 12;
+  /* Read #stage's actual padding rather than a hardcoded guess - it now
+     differs between desktop (26px vertical/6px horizontal), the mobile
+     media query (4px all round), clean mode, and fullscreen, so a single
+     fixed constant here would drift out of sync with any one of those the
+     moment the CSS values above ever change again. */
+  var stageCs = getComputedStyle(stage);
+  var padX = parseFloat(stageCs.paddingLeft) + parseFloat(stageCs.paddingRight);
+  var padY = parseFloat(stageCs.paddingTop) + parseFloat(stageCs.paddingBottom);
+  var availW = stage.clientWidth - padX, availH = stage.clientHeight - padY;
   var ratio = 240 / 170;
   var single = availW < 815;
   var w, h;
@@ -1015,6 +1042,23 @@ function toggleFullscreen() {
     (document.exitFullscreen || document.webkitExitFullscreen || function () {}).call(document);
   }
 }
+/* Tracked via a plain class (not relied on as a bare :fullscreen CSS
+   selector) for the same cross-browser-prefix reason toggleFullscreen()
+   itself juggles both standard and webkit-prefixed APIs above - not every
+   engine's :fullscreen implementation is equally reliable. Drives the
+   "give #bottom the same edge margin as the book has up top" rule in the
+   CSS (html.fs:not(.clean) ...). Also re-triggers build() exactly like
+   toggleClean() does, since #stage's available height changes the instant
+   fullscreen engages or releases - real screen real estate appearing or
+   disappearing, not just chrome being hidden - and build() only computes
+   page pixel dimensions once, from #stage.clientHeight at call time. */
+['fullscreenchange', 'webkitfullscreenchange'].forEach(function (evt) {
+  document.addEventListener(evt, function () {
+    var on = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    document.documentElement.classList.toggle('fs', on);
+    if (flip) build(flip.getCurrentPageIndex() + 1);
+  });
+});
 
 document.addEventListener('keydown', function (e) {
   if (e.target.tagName === 'INPUT') return;
