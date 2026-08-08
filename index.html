@@ -215,7 +215,7 @@
   html.fs:not(.clean) #stage{inset:0 0 90px 0}
   html.fs:not(.clean) #bottom{bottom:26px}
   #stage.zoomed{
-    overflow:auto;cursor:grab;
+    overflow:hidden;cursor:grab;
     scrollbar-width:none;
     -ms-overflow-style:none;
     touch-action:none;
@@ -1076,6 +1076,8 @@ function zoomBy(dir) {
 }
 function applyZoomTransform() {
   wrap.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + zoom + ')';
+  stage.scrollLeft = 0;
+  stage.scrollTop = 0;
 }
 function setZoom(z, opts) {
   zoom = z;
@@ -1132,11 +1134,8 @@ function centreScroll() {
     var pair = touchPair(e);
     if (!pair || pinch.dist <= 0) return;
     var nextZoom = clampZoom(pinch.zoom * (pair.dist / pinch.dist));
-    var r = stage.getBoundingClientRect();
-    var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-    var ratio = nextZoom / pinch.zoom;
-    panX = pair.x - cx - ratio * (pinch.x - cx - pinch.panX);
-    panY = pair.y - cy - ratio * (pinch.y - cy - pinch.panY);
+    panX = pinch.panX + (pair.x - pinch.x);
+    panY = pinch.panY + (pair.y - pinch.y);
     setZoom(nextZoom, { keepPan: true });
   }, { passive: false, capture: true });
   stage.addEventListener('touchend', function (e) {
