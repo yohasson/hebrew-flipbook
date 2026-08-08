@@ -99,16 +99,22 @@
      (left edge, forward) mirrors the same path used for "prev" (right edge). */
   .edgebtn.flip svg, .peelarrow.flip svg{transform:scaleX(-1)}
 
-  /* Corner-peel hint, as on the reference: a small triangular fold at the
-     outer corners of the visible page. The bottom corner (nearest the
-     direction of travel) carries a curved arrow like Heyzine's; the top
-     corner shows the same fold with no arrow, matching what it actually
-     does - a secondary, undecorated hint at the same click target. */
+  /* Corner-peel hint. This used to be our own static triangular fold+icon
+     (the only corner hint back when StPageFlip's built-in one was disabled
+     - see showPageCorners in the JS below for that whole saga). Now that
+     showPageCorners is re-enabled and StPageFlip draws its own real,
+     dynamically-sized animated fold at each corner, this static div would
+     render UNDERNEATH/inside that fold at the same time - two different
+     hint shapes overlapping messily rather than one clean hint. Forcing
+     opacity 0 unconditionally (regardless of the .show class the JS below
+     still toggles) retires the visual without touching the proximity JS or
+     the onclick-to-flip handlers on these divs, which still work as an
+     invisible click target. */
   .peel{
     position:absolute;width:34px;height:34px;z-index:21;cursor:pointer;
-    overflow:hidden;opacity:0;transition:opacity .18s;
+    overflow:hidden;opacity:0!important;transition:none;
   }
-  .peel.show{opacity:1}
+  .peel.show{opacity:0!important}
   .peel.hide{display:none}
   .peel::before{
     content:'';position:absolute;width:48px;height:48px;
