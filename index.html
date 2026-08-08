@@ -119,11 +119,16 @@
   .edgebtn:active{color:#000}
   .edgebtn.hide{opacity:0;pointer-events:none}
   .edgebtn svg{width:22px;height:22px;fill:none;stroke:currentColor;
-               stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+               stroke-width:2;stroke-linecap:round;stroke-linejoin:round;
+               transform:rotate(180deg)}
   /* Heyzine's own reply-arrow glyph, traced from their sprite (iconset2_6.png),
      used for the edge buttons and the corner-peel hint so both match. "next"
-     (left edge, forward) mirrors the same path used for "prev" (right edge). */
-  .edgebtn.flip svg, .peelarrow.flip svg{transform:scaleX(-1)}
+     (left edge, forward) mirrors the same path used for "prev" (right edge).
+     Both rotated 180deg from the glyph's native orientation per Yossi's
+     direct feedback on the deployed site (the un-rotated glyph pointed the
+     wrong way for both directions). */
+  .edgebtn.flip svg{transform:scaleX(-1) rotate(180deg)}
+  .peelarrow.flip svg{transform:scaleX(-1)}
 
   /* Corner-peel hint. This used to be our own static triangular fold+icon
      (the only corner hint back when StPageFlip's built-in one was disabled
