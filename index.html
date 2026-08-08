@@ -404,23 +404,22 @@ function build(startPage) {
     mobileScrollSupport: false,
     swipeDistance: 24,
     drawShadow: true,
-    /* StPageFlip has its OWN built-in "hover near a corner" fold preview
-       (userMove() -> showCorner(), default showPageCorners:true), computed
-       against #book's un-mirrored internal coordinate space. Because #book
-       is rendered with transform:scaleX(-1) to turn this LTR engine into
-       an RTL book, StPageFlip's internal "nearest corner" math doesn't know
-       about that mirror - it decides a corner is nearest based on raw
-       (pre-mirror) mouse position, then that decision gets visually flipped
-       left/right along with everything else #book renders. The result:
-       hovering what LOOKS like the left corner triggers what StPageFlip
-       believes is the right corner, which paints on the visual left after
-       the mirror - i.e. exactly the reported "opposite corner lifts" bug.
-       Our own .peel divs (see the pointermove/proximity code below) already
-       implement this same hint correctly in real screen coordinates, so
-       disable StPageFlip's version outright rather than fight its mirrored
-       math. Confirmed via the minified source: showPageCorners defaults to
-       true and is the only thing gating that internal showCorner() call. */
-    showPageCorners: false
+    /* StPageFlip has its OWN built-in "hover near a corner" animated fold
+       preview (userMove() -> showCorner()), gated by showPageCorners
+       (default true). This used to be mirrored wrong - and so did the real
+       drag-to-flip direction - because #book is rendered with
+       transform:scaleX(-1) for RTL, but the library's own getMousePos()
+       (vendor/page-flip.browser.js, patched in-place - see the file's
+       header comment) naively did clientX-rect.left with no knowledge of
+       that mirror. Both bugs (mirrored hover AND mirrored real flip
+       direction) shared that one root cause. Now that getMousePos() itself
+       is patched to un-mirror real pointer coordinates, showPageCorners can
+       be safely re-enabled - StPageFlip's animated hover-lift now computes
+       correctly and looks like a real page-corner lift, instead of our
+       static icon-only .peel hint standing in for it. Keep both: the .peel
+       divs still supply the custom arrow-icon/shadow styling layered on
+       top, but the actual lift animation is StPageFlip's own now. */
+    showPageCorners: true
   });
   flip.loadFromHTML(el.querySelectorAll('.page'));
   flip.on('flip', function () { sync(); });
