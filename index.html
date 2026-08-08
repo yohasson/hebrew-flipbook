@@ -102,17 +102,21 @@
   #stage.zoomed{overflow:auto;cursor:grab}
   #stage.zoomed:active{cursor:grabbing}
 
-  /* Heyzine-style edge arrows, positioned outside the page in layout() (not
-     pinned to the viewport edge), matching the reference exactly. */
+  /* Heyzine's real edge arrows (measured directly off their live reader via
+     DOM inspection, not guessed): 32x32, bare icon with NO circular button,
+     no background, no shadow, no border - just the glyph, positioned near
+     the BOTTOM of the book (~5px above its bottom edge), not vertical-middle
+     as an earlier pass here wrongly assumed. Exact measured values: button
+     rect bottom sits 5px above the book's own bottom edge; horizontal gap
+     from the book's left/right edge to the button is 10px either side. */
   .edgebtn{
-    position:absolute;top:50%;z-index:20;width:38px;height:38px;
-    margin-top:-19px;border:0;border-radius:50%;cursor:pointer;
-    background:rgba(255,255,255,.85);color:#3c3c3c;
+    position:absolute;bottom:5px;z-index:20;width:32px;height:32px;
+    border:0;cursor:pointer;background:transparent;color:#3c3c3c;
     display:flex;align-items:center;justify-content:center;
-    box-shadow:0 1px 4px rgba(0,0,0,.18);transition:background .15s,opacity .15s;
+    box-shadow:none;transition:opacity .15s;
   }
-  .edgebtn:hover{background:#fff}
-  .edgebtn:active{background:#e6e6e6}
+  .edgebtn:hover{color:#000}
+  .edgebtn:active{color:#000}
   .edgebtn.hide{opacity:0;pointer-events:none}
   .edgebtn svg{width:22px;height:22px;fill:none;stroke:currentColor;
                stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -264,9 +268,11 @@
   html.dark .seg button{color:#aaa}
   html.dark .seg button.on{background:#eee;color:#1c1c1c}
   html.dark .seg button:hover:not(.on){color:#eee;background:#484848}
-  html.dark .edgebtn{background:rgba(40,40,40,.85);color:#d8d8d8}
-  html.dark .edgebtn:hover{background:#333}
-  html.dark .edgebtn:active{background:#404040}
+  /* Bare icon, no chrome (see .edgebtn above) - only the icon colour needs
+     to flip for dark mode, there's no background/shadow to restyle. */
+  html.dark .edgebtn{color:#d8d8d8}
+  html.dark .edgebtn:hover{color:#fff}
+  html.dark .edgebtn:active{color:#fff}
   html.dark #nav{background:#242424;box-shadow:0 1px 4px rgba(0,0,0,.4)}
   html.dark #counter{color:#bbb}
   html.dark #scrub::-webkit-slider-runnable-track{background:#4a4a4a}
@@ -605,18 +611,23 @@ function layout() {
 
   /* Edge arrows sit OUTSIDE the page, like the reference, with a fixed gap -
      not pinned to the viewport edge, so they track the book at every size.
-     On narrow/portrait viewports there often isn't 14+38px of margin outside
+     Position and size measured directly off Heyzine's live reader via DOM
+     inspection: 32x32 buttons, 10px gap outside the book's left/right edge,
+     bottom-aligned so the button's bottom sits 5px above the book's own
+     bottom edge (NOT vertical-middle - an earlier pass here wrongly assumed
+     that from a screenshot instead of measuring the real DOM rects).
+     On narrow/portrait viewports there often isn't 10+32px of margin outside
      the single page at all; without clamping, edgeNext lands at a negative
      x and is permanently off-screen and unusable (confirmed at 390px wide:
      x=-52). Clamp both buttons to stay on screen, falling back to overlapping
      the page edge slightly rather than disappearing. */
-  var EGAP = 14, EB = 38, EPAD = 4;
+  var EGAP = 10, EB = 32, EPAD = 4, EBOTTOM = 5;
   var edgeNext = document.getElementById('edgeNext'), edgePrev = document.getElementById('edgePrev');
   var vpW = stage.clientWidth;
   edgeNext.style.left = Math.max(EPAD, vx - EGAP - EB) + 'px';
-  edgeNext.style.top = (by + bh / 2) + 'px';
+  edgeNext.style.top = (by + bh - EBOTTOM - EB) + 'px';
   edgePrev.style.left = Math.min(vx + vw + EGAP, vpW - EB - EPAD) + 'px';
-  edgePrev.style.top = (by + bh / 2) + 'px';
+  edgePrev.style.top = (by + bh - EBOTTOM - EB) + 'px';
   /* These buttons live inside #zoomwrap, so their left/top above is in that
      ancestor's pre-scale coordinate space; the clamp against vpW is only
      valid at zoom 1. Once #zoomwrap is scaled, the same clamped value can
