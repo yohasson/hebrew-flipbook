@@ -101,6 +101,15 @@
   }
   #stage.zoomed{overflow:auto;cursor:grab}
   #stage.zoomed:active{cursor:grabbing}
+  /* While zoomed in (>100%), a drag anywhere over the book must PAN the
+     enlarged viewport - like any normal zoomed image/PDF viewer - not
+     trigger StPageFlip's own page-turn drag. StPageFlip attaches its own
+     mousedown/touchstart listeners directly on #book, so simply having a
+     pan handler elsewhere can't win a race against those; disabling
+     pointer-events on #book itself while zoomed means the browser's own
+     hit-testing routes every pointerdown to #zoomwrap/#stage instead,
+     where the pan-drag handler below lives - no event-order tricks needed. */
+  #stage.zoomed #book{pointer-events:none}
 
   /* Heyzine's real edge arrows (measured directly off their live reader via
      DOM inspection, not guessed): 32x32, bare icon with NO circular button,
@@ -748,7 +757,12 @@ function centreScroll() {
 (function () {
   var down = false, sx = 0, sy = 0, sl = 0, st = 0;
   stage.addEventListener('pointerdown', function (e) {
-    if (zoom <= 1 || e.target.closest('#book')) return;
+    /* #book has pointer-events:none while zoomed (see CSS), so a pointerdown
+       that reaches here while zoomed is always meant to pan, never a click
+       that should reach StPageFlip. No target.closest('#book') exclusion
+       needed (or wanted) any more - that check used to make every drag
+       starting on the actual page content skip panning entirely. */
+    if (zoom <= 1) return;
     down = true; sx = e.clientX; sy = e.clientY;
     sl = stage.scrollLeft; st = stage.scrollTop;
   });
