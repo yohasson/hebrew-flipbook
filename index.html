@@ -648,9 +648,24 @@ stage.addEventListener('wheel', function (e) {
    an element that small can desync if the cursor moves quickly (leave fires
    late or not at all), leaving the wrong corner stuck visible. Recomputing
    from scratch on every mousemove is self-correcting: whichever corner is
-   nearest right now is the one shown, full stop. */
+   nearest right now is the one shown, full stop.
+
+   Listens on `document`, not `#stage`: the top two corners sit directly
+   behind the #tools and #titlecard chrome panels, which are DOM siblings of
+   #stage (both live under <body>), not descendants. When the browser's hit-
+   test picks one of those panels as the topmost element at a point, a
+   'pointermove' fired there bubbles through THAT panel's ancestor chain and
+   never reaches a listener on #stage at all - confirmed with an instrumented
+   single-jump test (moveCount stayed 0 landing directly on a chrome panel).
+   The visible symptom was exactly the reported bug: resting the cursor over
+   the tools panel (which visually overlaps the top-left corner) or the
+   title card (overlaps the top-right corner) left whatever peel was last
+   computed while genuinely over #stage stuck showing on the opposite side.
+   Listening on `document` catches every pointermove regardless of which
+   element is topmost, so proximity is evaluated everywhere, including over
+   the chrome. */
 var PEEL_RADIUS = 90;
-stage.addEventListener('pointermove', function (e) {
+document.addEventListener('pointermove', function (e) {
   var ids = ['peelNextB', 'peelNextT', 'peelPrevB', 'peelPrevT'];
   var nearest = null, nearestD = PEEL_RADIUS;
   for (var k = 0; k < ids.length; k++) {
@@ -665,7 +680,13 @@ stage.addEventListener('pointermove', function (e) {
     document.getElementById(ids[j]).classList.toggle('show', ids[j] === nearest);
   }
 });
-stage.addEventListener('pointerleave', function () {
+/* document doesn't fire 'pointerleave' the way an element does; 'pointerout'
+   with relatedTarget null is what actually signals the cursor left the
+   whole browser viewport (vs. moving onto another in-page element, which
+   the per-move nearest-corner computation above already handles fine on
+   its own - if nothing is within PEEL_RADIUS, nothing shows). */
+document.addEventListener('pointerout', function (e) {
+  if (e.relatedTarget !== null) return;
   ['peelNextB', 'peelNextT', 'peelPrevB', 'peelPrevT'].forEach(function (id) {
     document.getElementById(id).classList.remove('show');
   });
