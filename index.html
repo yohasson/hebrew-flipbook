@@ -140,6 +140,15 @@
     display:flex;align-items:center;justify-content:center;padding:6px;
     perspective:2600px;perspective-origin:50% 45%;
   }
+  /* Clean mode hides #bottom entirely, so #stage no longer needs to reserve
+     64px of height for it - without this, the book would stay vertically
+     centred only within the space above that now-empty reserved strip,
+     reading as visibly off-centre (biased toward the top) rather than
+     truly centred in the full viewport. build()/layout() also get
+     re-triggered on toggle (see toggleClean() in the JS) since page sizing
+     itself is computed from #stage's clientHeight at build time, not just
+     recomputed live by this CSS alone. */
+  html.clean #stage{inset:0}
   #stage.zoomed{overflow:auto;cursor:grab}
   #stage.zoomed:active{cursor:grabbing}
   /* While zoomed in (>100%), a drag anywhere over the book must PAN the
@@ -579,6 +588,15 @@ try { if (localStorage.getItem('hb_clean') === '1') document.documentElement.cla
 function toggleClean() {
   var on = document.documentElement.classList.toggle('clean');
   try { localStorage.setItem('hb_clean', on ? '1' : '0'); } catch (e) {}
+  /* #stage reclaims/gives back the 64px normally reserved for #bottom (see
+     html.clean #stage{inset:0} in the CSS) the moment this class toggles,
+     but build() only computes page width/height from stage.clientHeight at
+     the instant it runs - a CSS-only change doesn't re-flow pages already
+     sized for the old, shorter available height. Rebuilding at the current
+     page re-centres the book correctly in whichever height is now
+     available. Reading stage.clientHeight inside build() forces the browser
+     to settle layout first, so no extra delay/rAF is needed here. */
+  if (flip) build(flip.getCurrentPageIndex() + 1);
 }
 
 function srcs(ed) {
