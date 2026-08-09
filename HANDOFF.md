@@ -149,11 +149,14 @@ own tighter padding via the media query.
 shadow (`rgb(204,204,204) 0 0 20px 0`, ≈ `rgba(0,0,0,.2)`) on top of the
 per-page shadow. We added `#spreadfx` for this. Heyzine has **no page-edge
 stack** effect at all — we had one (`.stack` elements), removed it entirely.
-Later show-through bugs during flips led to an intentionally more solid
-runtime setup: `drawShadow:false`, `maxShadowOpacity:0`, and additional
-opaque/blank reverse-side handling in `index.html`/`mksite4.py`. Do not
-re-enable transparent flip shadows casually; it can reintroduce Hebrew text
-show-through during page turns.
+Later show-through bugs during flips led to intentionally more solid page
+surfaces and reverse-side handling in `index.html`/`mksite4.py`
+(`.page::before`, `.page img` opacity/backface rules, and `stf__item`
+opacity/background overrides). Current live `/kabala/` still keeps a subtle
+StPageFlip shadow (`drawShadow:true`, `maxShadowOpacity:0.2`), so do not
+describe this as "shadows disabled"; the important thing is that page
+surfaces are opaque enough to prevent Hebrew text show-through during page
+turns.
 
 **Chrome/panels** — Heyzine's floating panels (title card, tools cluster)
 are flat translucent `rgba(255,255,255,.85)`, 5px radius, **no drop
@@ -170,10 +173,10 @@ space); we use an isolated-Unicode `4–5` to prevent bidi reordering. Close
 enough, not identical; not worth matching exactly.
 
 **Flip timing** — measured roughly in the 760-1000ms range depending on
-whether you're looking at hover/snap/settle behaviour; current StPageFlip
-duration remains `flippingTime: 780`. StPageFlip only exposes a duration,
-not Heyzine/turn.js's full custom easing curve, so this is the only safe
-public lever available.
+whether you're looking at hover/snap/settle behaviour; current live
+StPageFlip duration is `flippingTime: 1000`. StPageFlip only exposes a
+duration, not Heyzine/turn.js's full custom easing curve, so this is the
+only safe public lever available.
 
 **Edge-of-book arrows** — Heyzine's prev/next buttons sit fully **outside**
 the page canvas with a consistent ~10-14px gap (not overlapping it), and
