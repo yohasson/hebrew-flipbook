@@ -883,11 +883,11 @@ function build(startPage) {
     size: 'fixed',
     showCover: true,
     usePortrait: true,
-    maxShadowOpacity: 0.28,
+    maxShadowOpacity: 0,
     flippingTime: 780,
     mobileScrollSupport: false,
     swipeDistance: 24,
-    drawShadow: true,
+    drawShadow: false,
     /* StPageFlip has its OWN built-in "hover near a corner" animated fold
        preview (userMove() -> showCorner()), gated by showPageCorners
        (default true). This used to be mirrored wrong - and so did the real
@@ -1080,7 +1080,7 @@ function showPrev(p) {
   else { L.style.display = 'none'; }
   R.src = list[lo - 1];
   box.querySelector('.lbl').textContent =
-    hi ? (printedPage(lo) + ' - ' + printedPage(hi)) : String(printedPage(lo));
+    hi ? (printedPage(hi) + ' - ' + printedPage(lo)) : String(printedPage(lo));
   box.classList.add('on');
   var s = document.getElementById('scrub');
   var r = s.getBoundingClientRect();
