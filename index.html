@@ -318,7 +318,12 @@
         transition:transform .42s cubic-bezier(.25,.85,.3,1);will-change:transform}
   #book.nofx{transition:none}
   #book img{transform:scaleX(-1);width:100%;height:100%;display:block}
-  .page{background:#fff;overflow:hidden;box-shadow:0 0 20px rgba(0,0,0,.2);position:relative}
+  .page{
+    background:#fff;overflow:hidden;box-shadow:0 0 20px rgba(0,0,0,.2);position:relative;
+    opacity:1!important;isolation:isolate;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  }
+  .page img{opacity:1;background:#fff;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+  .stf__item{background:#fff!important;opacity:1!important;isolation:isolate}
   /* Paper-tone overlay. Page content is a flat scanned JPEG (not live text),
      so re-colouring the paper itself means tinting on TOP of the image
      rather than changing the image or any page background colour - a
@@ -878,7 +883,7 @@ function build(startPage) {
     size: 'fixed',
     showCover: true,
     usePortrait: true,
-    maxShadowOpacity: 0.45,
+    maxShadowOpacity: 0.28,
     flippingTime: 780,
     mobileScrollSupport: false,
     swipeDistance: 24,
