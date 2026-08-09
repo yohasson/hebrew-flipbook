@@ -759,6 +759,20 @@ function goToTocPage(page) {
   sync();
 }
 
+function resetReaderDefaults() {
+  document.documentElement.classList.add('dark');
+  paintThemeIcon(true);
+  setPaper('cream');
+  document.documentElement.classList.remove('clean');
+  closeToc();
+  setZoom(1);
+  try {
+    localStorage.setItem('hb_theme', 'dark');
+    localStorage.setItem('hb_clean', '0');
+  } catch (e) {}
+  if (flip) { flip.turnToPage(0); sync(); }
+}
+
 /* ---------------- clean / distraction-free reading mode ----------------
    Persisted the same way as theme/paper - if the reader left it on, it
    stays on next visit rather than needlessly popping the chrome back up. */
@@ -1009,6 +1023,12 @@ function updateCounter() {
 
 function nextPage() { if (flip) flip.flipNext(); }
 function prevPage() { if (flip) flip.flipPrev(); }
+function scrollPage(dir) {
+  if (!flip) return;
+  var p = Math.max(1, Math.min(total, flip.getCurrentPageIndex() + 1 + dir));
+  flip.turnToPage(p - 1);
+  sync();
+}
 
 /* ---------------- scrubber ---------------- */
 var scrubbing = false, scrubTimer = null;
@@ -1099,6 +1119,8 @@ function centreScroll() {
 (function () {
   var down = false, sx = 0, sy = 0, startPanX = 0, startPanY = 0;
   var pinch = null;
+  var single = null, longPressTimer = null;
+  var suppressFlipUntil = 0;
   function clampZoom(z) {
     return Math.max(1, Math.min(ZOOMS[ZOOMS.length - 1], z));
   }
@@ -1112,12 +1134,39 @@ function centreScroll() {
       y: (a.clientY + b.clientY) / 2
     };
   }
-  stage.addEventListener('touchstart', function (e) {
-    var pair = touchPair(e);
-    if (!pair) return;
+  function clearLongPress() {
+    if (longPressTimer) clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+  function suppress(e) {
     e.preventDefault();
     e.stopPropagation();
+    if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+  }
+  ['pointerup', 'pointercancel', 'click'].forEach(function (type) {
+    stage.addEventListener(type, function (e) {
+      if (Date.now() < suppressFlipUntil) suppress(e);
+    }, { passive: false, capture: true });
+  });
+  stage.addEventListener('touchstart', function (e) {
+    var pair = touchPair(e);
+    if (!pair) {
+      if (e.touches.length !== 1) return;
+      var t = e.touches[0];
+      single = { x: t.clientX, y: t.clientY, vertical: false, reset: false };
+      clearLongPress();
+      longPressTimer = setTimeout(function () {
+        if (!single || single.vertical) return;
+        single.reset = true;
+        resetReaderDefaults();
+      }, 850);
+      return;
+    }
+    clearLongPress();
+    single = null;
+    suppress(e);
     down = false;
+    suppressFlipUntil = Date.now() + 1200;
     pinch = {
       dist: pair.dist,
       x: pair.x,
@@ -1128,9 +1177,20 @@ function centreScroll() {
     };
   }, { passive: false, capture: true });
   stage.addEventListener('touchmove', function (e) {
+    if (single && e.touches.length === 1 && !pinch) {
+      var t = e.touches[0];
+      var dx = t.clientX - single.x, dy = t.clientY - single.y;
+      if (Math.hypot(dx, dy) > 12) clearLongPress();
+      if (zoom <= 1 && Math.abs(dy) > 55 && Math.abs(dy) > Math.abs(dx) * 1.35) {
+        single.vertical = dy > 0 ? 'down' : 'up';
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      return;
+    }
     if (!pinch || e.touches.length < 2) return;
-    e.preventDefault();
-    e.stopPropagation();
+    suppress(e);
+    suppressFlipUntil = Date.now() + 1200;
     var pair = touchPair(e);
     if (!pair || pinch.dist <= 0) return;
     var nextZoom = clampZoom(pinch.zoom * (pair.dist / pinch.dist));
@@ -1139,15 +1199,34 @@ function centreScroll() {
     setZoom(nextZoom, { keepPan: true });
   }, { passive: false, capture: true });
   stage.addEventListener('touchend', function (e) {
-    if (e.touches.length < 2) pinch = null;
-  });
-  stage.addEventListener('touchcancel', function () { pinch = null; });
+    clearLongPress();
+    if (single && e.touches.length === 0) {
+      if (single.vertical && !single.reset) {
+        suppress(e);
+        suppressFlipUntil = Date.now() + 500;
+        scrollPage(single.vertical === 'up' ? 1 : -1);
+      }
+      single = null;
+    }
+    if (pinch && e.touches.length < 2) {
+      suppress(e);
+      suppressFlipUntil = Date.now() + 1200;
+      pinch = null;
+      down = false;
+    }
+  }, { passive: false, capture: true });
+  stage.addEventListener('touchcancel', function (e) {
+    clearLongPress(); single = null;
+    if (pinch) { suppress(e); suppressFlipUntil = Date.now() + 1200; }
+    pinch = null; down = false;
+  }, { passive: false, capture: true });
   stage.addEventListener('pointerdown', function (e) {
     /* #book has pointer-events:none while zoomed (see CSS), so a pointerdown
        that reaches here while zoomed is always meant to pan, never a click
        that should reach StPageFlip. No target.closest('#book') exclusion
        needed (or wanted) any more - that check used to make every drag
        starting on the actual page content skip panning entirely. */
+    if (Date.now() < suppressFlipUntil) { suppress(e); return; }
     if (zoom <= 1 || pinch) return;
     down = true; sx = e.clientX; sy = e.clientY;
     startPanX = panX; startPanY = panY;
