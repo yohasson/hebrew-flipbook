@@ -365,8 +365,7 @@
   #bottom>*{pointer-events:auto}
   #nav{display:flex;align-items:center;gap:.1rem;background:#fff;border-radius:10px;
        padding:.24rem;box-shadow:0 1px 4px rgba(0,0,0,.14)}
-  #counter{font-size:.78rem;color:#4a4a4a;min-width:8.6rem;text-align:center;
-           font-variant-numeric:tabular-nums;user-select:none}
+  #counter{display:none}
   #scrub{
     -webkit-appearance:none;appearance:none;background:transparent;
     width:min(46vw,520px);height:24px;margin:0;direction:rtl;cursor:pointer;
@@ -723,6 +722,9 @@ setPaper(paper);
 function tocEntries() {
   return TOC[edition] || [];
 }
+function printedPage(page) {
+  return Math.max(1, page - 12);
+}
 function resolveTocPage(page, entries) {
   var maxPage = entries.reduce(function (m, item) {
     return Math.max(m, Number(item[1]) || 1);
@@ -750,7 +752,7 @@ function renderToc() {
     title.textContent = name;
     var page = document.createElement('span');
     page.className = 'tocpage';
-    page.textContent = target;
+    page.textContent = printedPage(target);
     btn.appendChild(title);
     btn.appendChild(page);
     btn.addEventListener('click', function () { goToTocPage(target); });
