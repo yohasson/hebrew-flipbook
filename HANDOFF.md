@@ -1,15 +1,15 @@
 # HANDOFF — rebuilding the הולך בדרכי flipbook from the final edited book
 
-Written 8 Aug 2026, updated the same day after a second session (zoom-drag
-fix, paper-tone picker feature, PDF-replacement instructions in §15), for
-whoever picks this up next after Yossi finishes the final text edit of the
-book. This is everything I learned building and fixing the current site,
-so you don't have to rediscover it.
+Written 8 Aug 2026, updated 9 Aug 2026 after the later flipbook rebuilds
+(integrated cover/interior image set, clickable TOC, clean mode, paper-tone
+picker, mobile reset, social preview, and show-through fixes), for whoever
+picks this up next. This is everything I learned building and fixing the
+current site, so you don't have to rediscover it.
 
 **Read this whole document before touching anything.** The single biggest
-time-saver in here is the "stale pagination" section — it explains a bug
-that isn't visible from just looking at the site, and will bite you if you
-skip straight to editing images.
+time-saver in here is the pagination/source-state section — it explains
+which artifacts currently match the live flipbook and which are only print
+pipeline outputs, which will bite you if you skip straight to editing images.
 
 ---
 
@@ -36,7 +36,7 @@ self-hosted, ad-free equivalent that looks and feels the same.
 ## 2. The build pipeline — what generates what
 
 All build scripts live in
-`...\Documents\Microsoft Scout\Scratchpad\HOLECH-BEDARKI\5_BUILD\`.
+`C:\Users\yohasson\OneDrive\Documents\HOLECH-BEDARKI\5_BUILD\`.
 
 ```
 paras.json (750 paragraphs, single source of text)
@@ -54,13 +54,13 @@ book_std.pdf / book_large.pdf
        |  (these currently point at out/C_RGB_trim.pdf and out/L_RGB_trim.pdf —
        |   see §3, THESE INPUT FILES ARE MISSING)
        v
-images/regular/page_NNN.jpg  (68 files)
-images/large/page_NNN.jpg    (84 files)
+images/regular/page_NNN.jpg  (90 files as of 9 Aug 2026)
+images/large/page_NNN.jpg    (99 files as of 9 Aug 2026)
        |
        v
 mksite4.py   -- generates the actual index.html from a template + these
-                image counts + _sounds.json, writes to
-                C:\Users\yohasson\.scout\hebrew-flipbook\index.html
+                image counts + _sounds.json + tocmap_std/tocmap_large,
+                writes to C:\Users\yohasson\.scout\hebrew-flipbook\index.html
        |
        v
 git add/commit/push  (from C:\Users\yohasson\.scout\hebrew-flipbook)
@@ -82,36 +82,45 @@ git push origin main
 directly (`os.listdir`), so it auto-adjusts to however many pages actually
 exist — you don't need to edit page counts by hand anywhere.
 
-## 3. CRITICAL: the deployed page images are from a STALE, mismatched build
+## 3. Current pagination/source state — do not assume the PDFs and image folders are identical
 
 This is the thing that will confuse you if you don't know it going in.
 
-I found, and did not fully resolve, a real inconsistency:
+The old 68pp/84pp stale-image state is no longer current. After the later
+rebuilds, the deployed image folders now contain:
 
 | | Current print PDFs (`5_BUILD/rebuild/book_std.pdf`, `book_large.pdf`) | Deployed flipbook images (`images/regular`, `images/large`) |
 |---|---|---|
-| Page count | **80pp / 87pp** | **68pp / 84pp** |
-| Source | `mkbook.py` output, rebuilt 8 Aug 2026 | Rasterized at some earlier point from `out/C_RGB_trim.pdf` / `out/L_RGB_trim.pdf` — **these two input PDFs no longer exist anywhere on disk** |
+| Page count | **96pp / 106pp** | **90pp / 99pp** |
+| Source | `mkbook.py` output, current print-oriented PDFs in `rebuild\` | Current deployed flipbook image set in the GitHub Pages repo |
 
-`tocmap_std.json` / `tocmap_large.json` (chapter-name → page-number lookup,
-in the same `rebuild` folder) correspond to the **current 80pp/87pp**
-pagination, **not** the 68pp/84pp images actually on the live site. If you
-use those tocmap files against the deployed flipbook you will get chapter
-boundaries that are off by several pages (I measured this precisely —
-see §7).
+The current TOC maps in `rebuild\tocmap_std.json` and
+`rebuild\tocmap_large.json` are **actively embedded by `mksite4.py`** for
+the clickable TOC feature. As of the 9 Aug handoff, they contain 22 entries
+each and max at page **89** (regular) / **98** (large), which lines up with
+the 90/99 deployed image counts as "last chapter before the final cover/end
+matter". The TOC UI currently displays **printed page numbers** using a
+hardcoded `printedPage(page) = page - 12` offset while internally jumping to
+the actual generated image page.
 
-**What this means for you:** the flipbook you see live right now is
-*already* out of sync with the current book text/layout, before you even
-start incorporating Yossi's final edits. You are not starting from a
-clean, consistent baseline.
+**Do not generalize those numbers.** The next PDF used for this flipbook may
+be very different in page count (regular and large may differ from each
+other, and both may differ wildly from today's 90/99 images). On any rebuild:
+delete all old `page_*.jpg` files in the target image folder first, rasterize
+from the actual new integrated PDF, let `mksite4.py` recount the folders, and
+regenerate `tocmap_std.json` / `tocmap_large.json` from the actual new page
+sequence. If the number of front-matter/cover/blank pages before printed page
+1 changes, also update or remove the `printedPage(page) = page - 12` display
+offset in `mksite4.py`; it is a property of the current integrated PDF, not a
+universal rule.
 
-**What I recommend:** don't try to patch the existing 68pp/84pp images.
-Once Yossi's final edit lands and goes through `mkbook.py` (however many
-pages that produces), run the **full pipeline end to end** — Word → PDF →
-rasterize → `mksite4.py` — so the flipbook images and the print PDFs are
-generated from the exact same source in the same pass and can never drift
-apart again. While you're at it, see §7 for how to get *exact*
-paragraph-level continuity for free as a side effect.
+**What this means for you:** the flipbook you see live right now is not an arbitrary old 68/84 build any
+more, but you still must not assume `book_std.pdf` / `book_large.pdf` can be
+blindly rasterized over the current site without checking page order. The
+flipbook now includes cover/interior book-behaviour assumptions (front cover,
+inside-cover blank, interior, inside-back-cover blank, back cover). If you
+replace the source PDF, build the integrated PDF/page-image sequence
+intentionally and regenerate the TOC maps in the same pass — see §15.
 
 ## 4. Everything measured and matched against Heyzine tonight
 
@@ -129,13 +138,22 @@ TL 247, TR 229, BL 232, BR 223 (out of 255) — a ~143° diagonal ramp. Ours:
 verified within 2.5 levels of Heyzine's actual rendered pixels.
 
 **Spread sizing** — Heyzine fills ~82.1% of viewport width / 92.7% of
-height at 1440×900. Achieved by trimming `#stage` padding to 6px and the
-bottom bar to 64px.
+height at 1440×900. We originally got close with a very tight 6px stage
+padding, but that later felt cramped against the browser edge. Current
+state: desktop `#stage` uses `padding:26px 6px`, and `build()` now reads
+the actual computed stage padding rather than a hardcoded `-12px` guess,
+so future padding tweaks don't desync page sizing. Mobile still has its
+own tighter padding via the media query.
 
-**Shadow** — Heyzine layers a second, spread-wide ambient shadow
-(`rgb(204,204,204) 0 0 20px 0`, ≈ `rgba(0,0,0,.2)`) on top of the per-page
-shadow. We added `#spreadfx` for this. Heyzine has **no page-edge stack**
-effect at all — we had one (`.stack` elements), removed it entirely.
+**Shadow / page opacity** — Heyzine layers a second, spread-wide ambient
+shadow (`rgb(204,204,204) 0 0 20px 0`, ≈ `rgba(0,0,0,.2)`) on top of the
+per-page shadow. We added `#spreadfx` for this. Heyzine has **no page-edge
+stack** effect at all — we had one (`.stack` elements), removed it entirely.
+Later show-through bugs during flips led to an intentionally more solid
+runtime setup: `drawShadow:false`, `maxShadowOpacity:0`, and additional
+opaque/blank reverse-side handling in `index.html`/`mksite4.py`. Do not
+re-enable transparent flip shadows casually; it can reintroduce Hebrew text
+show-through during page turns.
 
 **Chrome/panels** — Heyzine's floating panels (title card, tools cluster)
 are flat translucent `rgba(255,255,255,.85)`, 5px radius, **no drop
@@ -151,9 +169,11 @@ persistent. We built the same thing (`#scrubprev`).
 space); we use an isolated-Unicode `4–5` to prevent bidi reordering. Close
 enough, not identical; not worth matching exactly.
 
-**Flip timing** — measured ~760ms on Heyzine; we use `flippingTime: 780`
-(StPageFlip only exposes a duration, not a custom easing curve, so this
-is the only lever available).
+**Flip timing** — measured roughly in the 760-1000ms range depending on
+whether you're looking at hover/snap/settle behaviour; current StPageFlip
+duration remains `flippingTime: 780`. StPageFlip only exposes a duration,
+not Heyzine/turn.js's full custom easing curve, so this is the only safe
+public lever available.
 
 **Edge-of-book arrows** — Heyzine's prev/next buttons sit fully **outside**
 the page canvas with a consistent ~10-14px gap (not overlapping it), and
@@ -166,10 +186,10 @@ CSS and the shared SVG path in `mksite4.py`).
 **Corner-peel hover hint** — Heyzine shows a small triangular paper-fold
 at page corners on hover (rotated-square-clipped-to-corner, confirmed via
 its own `matrix(0.707107, 0.707107, -0.707107, 0.707107, ...)` = 45°
-rotation), with the curved arrow icon layered on **only the corner nearest
-the direction of travel** — the opposite corner shows the fold with no
-arrow. We built four `.peel` divs (`peelNextB/T`, `peelPrevB/T`) to match
-this exactly.
+rotation). Current site uses StPageFlip's native `showPageCorners:true`
+fold preview after patching the RTL coordinate bug; our old `.peel` divs
+remain in the DOM as invisible click targets only (`opacity:0!important`),
+not visible fold graphics.
 
 ## 5. Deliberately NOT matched, and why — don't "fix" these
 
@@ -186,10 +206,11 @@ better and matching them would be a regression:
    StPageFlip doesn't expose a custom timing function, only duration, so
    this can be approximated by shortening duration but not reproduced
    exactly.
-2. **No drag-to-peel on Heyzine** (best evidence: n=1 test, low
-   confidence, but no intermediate transform ever appeared during a slow
-   drag). Ours has real continuous drag-follow via StPageFlip. This is a
-   capability *surplus*, not a gap.
+2. **Heyzine and ours use different flip engines/physics.** Heyzine's
+   reference uses turn.js-style 2D wrapper transforms; ours uses StPageFlip
+   with real 3D page geometry. Both support drag-follow behaviour, but the
+   exact physics/easing are not identical. Keep ours unless Yossi explicitly
+   asks to trade the 3D curl for Heyzine's flatter turn.js motion.
 3. **Heyzine has no real mobile layout** — at narrow viewports it's just
    a shrunk, side-cropped desktop canvas, not a responsive single-page
    view. Ours properly reflows to single-page with pruned controls. Do
@@ -226,18 +247,25 @@ to change, since the two editions paginate differently).
 fractional position through the book — `(oldPage-1)/(oldTotal-1)` — and
 applies the identical fraction to the new edition's page count. This is
 provably safe (cover always maps to cover, back cover always maps to back
-cover, round-trips are lossless — I tested all three), but it is **only
-approximate mid-book**. I validated it against the real chapter-boundary
-data in `tocmap_std.json`/`tocmap_large.json` (which — reminder — is for a
-*different* pagination than what's deployed, but the *relative* drift
-pattern is still informative): the approximation is exact for the first
-~6 of 22 chapters, then drifts up to **9 pages** off by the end of an
-84-page book. Good enough to land in the right neighbourhood; not
-paragraph-exact for later chapters. There's a bug-history worth knowing:
-I initially had an off-by-one (used `oldPage` instead of `(oldPage-1)` in
-the fraction), which shifted the cover to page 2 on every switch — fixed,
-but a reminder to actually test the cover/back-cover edge cases if you
-touch this formula, not just the middle of the book.
+cover, round-trips are lossless), but it is **only approximate mid-book**.
+This approximation intentionally makes no assumption about the actual page
+count; if a future PDF is 40 pages or 200 pages, the formula still maps to
+the same relative position. There's a bug-history worth knowing: an earlier
+off-by-one used `oldPage` instead of `(oldPage-1)` in the fraction, which
+shifted the cover to page 2 on every switch — fixed, but a reminder to
+actually test the cover/back-cover edge cases if you touch this formula,
+not just the middle of the book.
+
+**Clickable TOC (current state):** `mksite4.py` embeds
+`rebuild\tocmap_std.json` and `rebuild\tocmap_large.json` as a `TOC` object.
+The TOC button lives in the top-right title card next to the font-size
+buttons, because the active font-size edition determines which TOC map is
+used. Clicking an entry calls `flip.turnToPage(page-1)` and closes the
+panel. The panel hides in clean mode, has a slim custom scrollbar, supports
+`T` to toggle and `Esc` to close, and uses separate page targets for regular
+and large editions. Important: the TOC maps must be regenerated from the
+actual new PDFs on every rebuild; do not reuse today's page numbers if the
+replacement PDFs have a different page count or different front matter.
 
 **How to make it exact, and why you can do this for free:** you'll be
 building both editions from the same `paras.json`/paragraph source in one
@@ -412,23 +440,24 @@ production, not just committed locally.
     mkbook.py                current Word-layout engine (both print + ebook source)
     rebuild\
       paras.json             the 750-paragraph source of truth (also used for proofreading)
-      tocmap_std.json        chapter->page for the CURRENT 80pp print PDF (NOT the live flipbook)
-      tocmap_large.json      chapter->page for the CURRENT 87pp print PDF (NOT the live flipbook)
-      book_std.pdf/.docx     current print output, 80pp
-      book_large.pdf/.docx   current print output, 87pp
+      tocmap_std.json        embedded by mksite4.py for regular clickable TOC (22 entries, max page 89)
+      tocmap_large.json      embedded by mksite4.py for large clickable TOC (22 entries, max page 98)
+      book_std.pdf/.docx     current print output, 96pp
+      book_large.pdf/.docx   current print output, 106pp
     ebook_src\
       mksite4.py             generates index.html - THE FILE TO EDIT for site behaviour
       mksounds3.py            page-turn sound synthesis
-      rasterize.py            regular-edition PDF -> JPEGs (INPUT PDF MISSING, see §3)
-      rasterize_large.py      large-edition PDF -> JPEGs (INPUT PDF MISSING, see §3)
+      rasterize.py            regular-edition PDF -> JPEGs (hardcoded paths may still need cleanup, see §15)
+      rasterize_large.py      large-edition PDF -> JPEGs (hardcoded paths may still need cleanup, see §15)
       pageflip.js              a saved copy of the vendored library (source of vendor/ in the site repo)
 
 C:\Users\yohasson\.scout\hebrew-flipbook\      the deployed site's git repo
   index.html                 generated by mksite4.py - do not hand-edit, re-run the generator
   vendor\page-flip.browser.js  vendored StPageFlip - see §6, do not revert to CDN
-  images\regular\, images\large\   the STALE 68pp/84pp page images, see §3
+  images\regular\, images\large\   deployed page images: 90pp/99pp as of 9 Aug 2026, see §3
   _sounds.json                generated by mksounds3.py
   README.md                   user-facing repo description
+  social-cover-front-optionB.jpg  current social preview image
 ```
 
 ---
@@ -477,10 +506,13 @@ but the short version if you only read this section:
   !important}` — the div (and its onclick-to-flip handler) still exists in
   the DOM but never renders, so StPageFlip's own animation is now the
   single, clean hint. If you ever want the custom arrow icon back, it
-  would need to be re-integrated *into* StPageFlip's own fold render
-  (matching its dynamic size as the cursor moves through the ~200px corner
-  zone) rather than as an independent overlay — non-trivial, probably not
-  worth it now that the native animation alone looks right.
+  would need to be re-integrated *into* StPageFlip's own fold render rather
+  than as an independent overlay — non-trivial, probably not worth it now
+  that the native animation alone looks right. Note that the original
+  StPageFlip hover zone was about ~200px for this book size, but the current
+  vendored library has since been patched smaller (`isPointOnCorners` divisor
+  12, `showCorner` offset 24, capped shadow width), so don't re-measure from
+  this old historical number.
 - ✅ Edge-of-book prev/next arrows — correct RTL side, correct icon,
   positioned outside the page, zoom/mobile-safe.
 - ✅ Bottom bar/scrubber missing in windowed (non-fullscreen) mode — Yossi
@@ -505,6 +537,13 @@ but the short version if you only read this section:
   approximately the same paragraph when switching — see §7 for the exact
   (non-approximate) upgrade path if you want to do it properly during
   the rebuild.
+- ✅ Clickable TOC — embedded from `tocmap_std.json` / `tocmap_large.json`,
+  opened from the title-card controls next to the font-size switch, with
+  edition-specific page targets and a custom slim scrollbar.
+- ✅ Clean reading mode, paper-tone picker, mobile reset button, social
+  preview image, scrub preview ordering/labels, and opaque/blank reverse
+  side handling for page turns are all part of the current `mksite4.py` /
+  `index.html` state and should be preserved unless intentionally replaced.
 
 **A meta-lesson from this whole debugging arc, worth internalizing before
 you touch this code again:** the same underlying bug (StPageFlip's
@@ -521,10 +560,11 @@ investigation is needed from scratch — and clean up workarounds
 underlying fix makes them unnecessary, rather than leaving both the
 old workaround and the new real fix active at once.
 
-Nothing is a known-open UI bug as of this handoff. The only known,
-deliberate gap is the stale-pagination mismatch in §3, which is a
-content/pipeline issue, not a UI bug — it will resolve itself once you
-run the full pipeline against Yossi's final edited text.
+Nothing is a known-open UI bug as of this handoff. The main caution is not
+a UI bug: future replacement PDFs may have very different page counts and
+front-matter structure, so every rebuild must regenerate image folders and
+TOC maps from the actual new integrated PDFs instead of assuming today's
+90/99 images, 96/106 print PDFs, or printed-page offset.
 
 ## 13. Zoom-in drag now pans, not flips (fixed later the same day)
 
@@ -609,6 +649,12 @@ only ever consumes pre-rasterized JPEGs (`images/<edition>/page_NNN.jpg`).
 Replacing "the PDF" really means re-running the rasterize step against a
 new source PDF, for **both** editions, then regenerating `index.html`.
 
+**Assume the replacement PDFs may have a very different number of pages.**
+Do not write scripts or checks that expect today's 90/99 image counts, the
+current 96/106 print PDF counts, or any small delta from either. Treat page
+count as fully data-driven from the new integrated PDFs and the freshly
+rasterized folders.
+
 **Important — verified 8 Aug 2026, don't trust `rasterize.py`'s hardcoded
 paths as-is, they're stale in three separate ways:**
 - Both `rasterize.py` and `rasterize_large.py` hardcode
@@ -623,9 +669,9 @@ paths as-is, they're stale in three separate ways:**
   project that no longer exists in the current pipeline.
 - **The actual current PDFs**, confirmed present as of this handoff, live
   directly in `...\OneDrive\Documents\HOLECH-BEDARKI\5_BUILD\rebuild\`:
-  - `book_std.pdf` (regular edition, ~1.4MB, RGB/screen-weight — this is
+  - `book_std.pdf` (regular edition, 96pp — this is
     the one to rasterize for the `regular` web edition)
-  - `book_large.pdf` (large-print edition, ~1.5MB — rasterize for `large`)
+  - `book_large.pdf` (large-print edition, 106pp — rasterize for `large`)
   - `book_proof.pdf` (~3.9MB, an A4 proofreading copy — **not** a flipbook
     source)
   - `book_std_hires.pdf` / `book_large_hires.pdf` / `book_proof_hires.pdf`
@@ -656,11 +702,12 @@ re-rasterize):**
    it won't (`mksite4.py` just counts *any* `.jpg` file via `os.listdir`,
    so stray `pNNN.jpg` files alongside real `page_NNN.jpg` ones would
    silently inflate the page count with duplicates/junk).
-3. **Delete old `page_NNN.jpg` files from the deployed `images/regular`
-   and `images/large` folders first** if the new PDF has *fewer* pages
-   than whatever's currently there — `mksite4.py` just counts whatever
-   `.jpg` files it finds, so stale leftovers from a longer previous book
-   will silently show up as extra/wrong pages at the end of the new one.
+3. **Always delete old `page_NNN.jpg` files from the deployed
+   `images/regular` and `images/large` folders first** before writing the
+   new rasterized set, regardless of whether you think the new PDF is
+   longer or shorter. `mksite4.py` just counts whatever `.jpg` files it
+   finds, so stale leftovers from any previous book will silently show up
+   as extra/wrong pages or duplicate pages.
 4. Run both: `python rasterize.py` then `python rasterize_large.py`.
    Renders at 105 DPI, downsized to fit within 760×1100px, JPEG quality 76
    — reasonable defaults for a screen flipbook; adjust in the script if a
@@ -675,17 +722,17 @@ re-rasterize):**
    git push origin main
    ```
    `mksite4.py` auto-detects the new page counts from the folders — no
-   manual page-count edits needed anywhere.
+   manual page-count edits needed anywhere, as long as the folders contain
+   only the fresh `page_NNN.jpg` files for the new PDFs.
 6. Verify per §10 (hash/byte-compare the live deployed `index.html` against
    local after ~75s, don't just trust the push).
 
-**If the new PDF's page count changed at all**, also sanity-check §7
-(edition-switch continuity is only a proportional approximation, and its
-accuracy depends on the two editions' page counts) and re-check whether
-`tocmap_std.json`/`tocmap_large.json` need regenerating if anything
-downstream depends on them (as of this handoff they already don't match
-the previously-deployed 68pp/84pp images — see §3 — so this drift is not
-new, just worth re-confirming after any page-count change).
+**Always regenerate and verify `tocmap_std.json` / `tocmap_large.json` when
+the PDFs are replaced**, even if the page count happens to look similar. The
+clickable TOC is live product functionality now, not just documentation data.
+Also sanity-check §7: edition-switch continuity is still a proportional
+approximation, and its accuracy depends on the two editions' actual page
+counts.
 
 **If you're handing this task to a different AI agent/session** (e.g. one
 that has the new PDF loaded but no memory of this project), give it: the
@@ -693,7 +740,7 @@ verified current PDF locations and names above, the exact
 `rasterize.py`/`rasterize_large.py` paths (with the three staleness issues
 called out explicitly so it doesn't propagate them), the deployed repo
 path and `page_NNN.jpg` naming convention, the "delete stale leftover files
-if the new book is shorter" warning, and the full rebuild+deploy+verify
+before writing the new image set" warning, and the full rebuild+deploy+verify
 command sequence above.
 
 ---
