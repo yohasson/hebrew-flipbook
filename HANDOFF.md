@@ -21,7 +21,7 @@ family already had made of the same book
 (`https://heyzine.com/flip-book/a711a2a3d2.html`). Yossi wanted a free,
 self-hosted, ad-free equivalent that looks and feels the same.
 
-- **Live site:** https://yohasson.github.io/hebrew-flipbook/
+- **Live site:** https://yohasson.github.io/kabala/
 - **Repo:** `C:\Users\yohasson\.scout\hebrew-flipbook` — pushes to
   `https://github.com/yohasson/hebrew-flipbook.git`, deployed via GitHub
   Pages from `main`.
@@ -396,7 +396,7 @@ push succeeding as proof it's live — fetch and hash-compare:
 ```powershell
 git push origin main
 Start-Sleep -Seconds 75
-Invoke-WebRequest "https://yohasson.github.io/hebrew-flipbook/index.html?cb=$(Get-Random)" -OutFile "$env:TEMP\live.html" -UseBasicParsing
+Invoke-WebRequest "https://yohasson.github.io/kabala/index.html?cb=$(Get-Random)" -OutFile "$env:TEMP\live.html" -UseBasicParsing
 # compare $env:TEMP\live.html against your local index.html (normalize CRLF/LF - git
 # checks out CRLF locally but serves LF, which will otherwise look like a false mismatch)
 ```
