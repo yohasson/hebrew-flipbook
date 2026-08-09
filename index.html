@@ -1052,13 +1052,15 @@ function scrollPage(dir) {
 var scrubbing = false, scrubTimer = null;
 
 /* The spread that page p belongs to, as [rightPage, leftPage] in reading order.
-   StPageFlip pairs as [0] [1,2] [3,4]..., so evens open a spread. */
+   StPageFlip displays the cover alone, then pairs 1-based pages as
+   [2,3] [4,5] [6,7]...; even pages open a spread, odd pages belong to the
+   previous even page. */
 function spreadOf(p) {
   var i = p - 1;
   if (portrait || aloneAt(i)) return [p, 0];
-  var a = (i % 2 === 0) ? i : i - 1;
-  if (a === 0) return [1, 0];
-  return [a + 1, a + 2];
+  var a = (p % 2 === 0) ? p : p - 1;
+  if (a <= 1) return [1, 0];
+  return [a, a + 1 <= total ? a + 1 : 0];
 }
 
 function showPrev(p) {
