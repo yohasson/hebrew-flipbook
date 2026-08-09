@@ -331,6 +331,8 @@
     opacity:1;background:#fff;position:relative;z-index:1;
     backface-visibility:hidden;-webkit-backface-visibility:hidden;
   }
+  .page.flip-blank img{opacity:0!important}
+  .page.flip-blank::after{display:none!important}
   .stf__item{background:#fff!important;opacity:1!important;isolation:isolate}
   /* Paper-tone overlay. Page content is a flat scanned JPEG (not live text),
      so re-colouring the paper itself means tinting on TOP of the image
@@ -915,7 +917,14 @@ function build(startPage) {
   });
   flip.loadFromHTML(el.querySelectorAll('.page'));
   flip.on('flip', function () { sync(); });
-  flip.on('changeState', function (e) { if (e.data === 'flipping') playFlip(); });
+  flip.on('changeState', function (e) {
+    if (e.data === 'flipping') {
+      playFlip();
+      trackFlipBlanking();
+    } else {
+      clearFlipBlanking();
+    }
+  });
 
   var s = document.getElementById('scrub');
   s.min = 1; s.max = total;
@@ -947,6 +956,31 @@ function offsetFor(i) {
 }
 
 function sync() { updateCounter(); layout(); }
+
+function clearFlipBlanking() {
+  document.querySelectorAll('.flip-blank').forEach(function (el) {
+    el.classList.remove('flip-blank');
+  });
+}
+
+function markFlipBlanking() {
+  var maxW = (PW || 1) * 0.72;
+  document.querySelectorAll('.page').forEach(function (el) {
+    var r = el.getBoundingClientRect();
+    var transformed = getComputedStyle(el).transform !== 'none';
+    el.classList.toggle('flip-blank', transformed && r.width > 0 && r.width < maxW);
+  });
+}
+
+function trackFlipBlanking() {
+  var until = performance.now() + 900;
+  function tick() {
+    markFlipBlanking();
+    if (performance.now() < until) requestAnimationFrame(tick);
+    else clearFlipBlanking();
+  }
+  tick();
+}
 
 function layout() {
   if (!flip) return;
