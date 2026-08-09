@@ -623,7 +623,7 @@ var stage = document.getElementById('stage');
 var wrap = document.getElementById('zoomwrap');
 
 /* ---------------- page-turn sound ---------------- */
-var sndOn = true, sndPool = [], sndIdx = 0;
+var sndOn = true, sndPool = [], sndIdx = 0, lastFlipSound = 0;
 try { sndOn = localStorage.getItem('hb_snd') !== '0'; } catch (e) {}
 
 function paintSndIcon() {
@@ -646,6 +646,9 @@ function initSound() {
 
 function playFlip() {
   if (!sndOn || !sndPool.length) return;
+  var now = Date.now();
+  if (now - lastFlipSound < 180) return;
+  lastFlipSound = now;
   var a = sndPool[sndIdx % sndPool.length];
   sndIdx++;
   try { a.currentTime = 0; a.play().catch(function () {}); } catch (e) {}
@@ -1034,8 +1037,8 @@ function updateCounter() {
   if (!scrubbing) s.value = i + 1;
 }
 
-function nextPage() { if (flip) flip.flipNext(); }
-function prevPage() { if (flip) flip.flipPrev(); }
+function nextPage() { if (flip) { playFlip(); flip.flipNext(); } }
+function prevPage() { if (flip) { playFlip(); flip.flipPrev(); } }
 function scrollPage(dir) {
   if (!flip) return;
   var p = Math.max(1, Math.min(total, flip.getCurrentPageIndex() + 1 + dir));
@@ -1152,12 +1155,17 @@ function centreScroll() {
     e.stopPropagation();
     if (e.stopImmediatePropagation) e.stopImmediatePropagation();
   }
+  function isStageControl(e) {
+    return e.target && e.target.closest && e.target.closest('.edgebtn,.peel');
+  }
   ['pointerup', 'pointercancel', 'click'].forEach(function (type) {
     stage.addEventListener(type, function (e) {
+      if (isStageControl(e)) return;
       if (Date.now() < suppressFlipUntil) suppress(e);
     }, { passive: false, capture: true });
   });
   stage.addEventListener('touchstart', function (e) {
+    if (isStageControl(e)) return;
     var pair = touchPair(e);
     if (!pair) {
       if (e.touches.length !== 1) return;
@@ -1181,6 +1189,7 @@ function centreScroll() {
     };
   }, { passive: false, capture: true });
   stage.addEventListener('touchmove', function (e) {
+    if (isStageControl(e)) return;
     if (single && e.touches.length === 1 && !pinch) {
       var t = e.touches[0];
       var dx = t.clientX - single.x, dy = t.clientY - single.y;
@@ -1214,6 +1223,7 @@ function centreScroll() {
     setZoom(nextZoom, { keepPan: true });
   }, { passive: false, capture: true });
   stage.addEventListener('touchend', function (e) {
+    if (isStageControl(e)) return;
     if (single && e.touches.length === 0) {
       suppress(e);
       suppressFlipUntil = Date.now() + 1200;
