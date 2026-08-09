@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="paper" x1="12" y1="8" x2="52" y2="58" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fbf0d6"/>
+      <stop offset=".55" stop-color="#ecd49f"/>
+      <stop offset="1" stop-color="#c69a58"/>
+    </linearGradient>
+    <linearGradient id="spine" x1="14" y1="9" x2="20" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6f4528"/>
+      <stop offset="1" stop-color="#3f281b"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="2.2" flood-color="#2a160b" flood-opacity=".28"/>
+    </filter>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#2b2118"/>
+  <g filter="url(#shadow)">
+    <path d="M16 9h32a5 5 0 0 1 5 5v37a5 5 0 0 1-5 5H16a5 5 0 0 1-5-5V14a5 5 0 0 1 5-5z" fill="url(#paper)"/>
+    <path d="M16 9h7v47h-7a5 5 0 0 1-5-5V14a5 5 0 0 1 5-5z" fill="url(#spine)"/>
+    <path d="M26 15h20a2 2 0 0 1 2 2v31a2 2 0 0 1-2 2H26z" fill="#fff6df" opacity=".28"/>
+    <path d="M24 13h22" stroke="#fff7df" stroke-width="1.5" opacity=".55" stroke-linecap="round"/>
+    <path d="M24 52h22" stroke="#6b482a" stroke-width="1.4" opacity=".35" stroke-linecap="round"/>
+    <text x="35.5" y="42"
+          font-family="David, 'Times New Roman', serif"
+          font-size="32"
+          font-weight="700"
+          text-anchor="middle"
+          fill="#4a2f1e">י</text>
+  </g>
+</svg>
