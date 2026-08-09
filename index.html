@@ -877,7 +877,7 @@ function build(startPage) {
   list.forEach(function (src, i) {
     var d = document.createElement('div');
     d.className = 'page';
-    if (i === 0 || i === list.length - 1) d.setAttribute('data-density', 'hard');
+    d.setAttribute('data-density', 'hard');
     var im = document.createElement('img');
     im.src = src; im.alt = 'עמוד ' + (i + 1);
     im.loading = i < 6 ? 'eager' : 'lazy';
